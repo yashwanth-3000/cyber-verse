@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --neon-green: #00ff00;
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+body {
+  background-color: black;
+  color: white;
+  cursor: none;
+}
+
+.cursor-spotlight {
+  width: 300px;
+  height: 300px;
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: screen;
+  transition: transform 0.1s cubic-bezier(0.23, 1, 0.32, 1);
+  will-change: transform;
+}
+
+.cursor-spotlight::before,
+.cursor-spotlight::after,
+.cursor-spotlight .inner-circle {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.cursor-spotlight::before,
+.cursor-spotlight::after {
+  width: 100%;
+  height: 100%;
+  border: 2px solid rgba(0, 255, 0, 0.5);
+}
+
+.cursor-spotlight::before {
+  animation: ripple 1.5s cubic-bezier(0, 0.5, 0.5, 1) infinite;
+}
+
+.cursor-spotlight::after {
+  animation: ripple 1.5s cubic-bezier(0, 0.5, 0.5, 1) infinite 0.75s;
+}
+
+.cursor-spotlight .inner-circle {
+  width: 20px;
+  height: 20px;
+  background-color: rgba(0, 255, 0, 0.5);
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.7);
+}
+
+@keyframes ripple {
+  0% {
+    width: 20%;
+    height: 20%;
+    opacity: 0.8;
+  }
+  100% {
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+  }
+}
+
+.cursor-spotlight.hovering {
+  transform: scale(1.2);
+}
+
+.cursor-spotlight.hovering .inner-circle {
+  background-color: rgba(0, 255, 0, 0.8);
+  box-shadow: 0 0 30px rgba(0, 255, 0, 0.9);
+}
+
+/* Improved hover effects */
+a:hover,
+button:hover,
+[role="button"]:hover {
+  position: relative;
+  z-index: 1;
+}
+
+a,
+button,
+[role="button"] {
+  transition: all 0.3s ease-out;
+}
+
+a:hover,
+button:hover,
+[role="button"]:hover {
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
