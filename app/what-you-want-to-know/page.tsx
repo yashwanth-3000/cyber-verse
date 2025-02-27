@@ -1,13 +1,118 @@
 "use client"
-import { motion } from "framer-motion"
+import { useState } from "react"
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import Link from "next/link"
+
+function ResourceCard({ resource }) {
+  const [isHovered, setIsHovered] = useState(false)
+  const prefersReducedMotion = useReducedMotion()
+  
+  // Enhanced spring animation settings for smoother transitions
+  const transitionSettings = prefersReducedMotion 
+    ? { duration: 0.1 }
+    : { 
+        type: "spring", 
+        stiffness: 250, 
+        damping: 25, 
+        mass: 0.5,
+        velocity: 2
+      }
+
+  return (
+    <motion.div
+      layout
+      layoutId={`resource-${resource.id}`}
+      transition={transitionSettings}
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
+      whileHover={{ 
+        scale: prefersReducedMotion ? 1 : 1.03,
+        boxShadow: "0 0 15px rgba(0, 255, 0, 0.15)"
+      }}
+      className="relative overflow-hidden border border-dashed border-[#00FF00] rounded-none bg-black/40"
+    >
+      {/* Text Content & Explore Button with enhanced animations */}
+      <motion.div
+        className="p-6 flex flex-col sm:flex-row items-center justify-between"
+        initial={{ opacity: 0.85 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+      >
+        <div>
+          <motion.h2 
+            className="text-2xl font-bold mb-2 text-[#00FF00]"
+            initial={{ opacity: 0.8, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+          >
+            {resource.title}
+          </motion.h2>
+          <motion.p 
+            className="text-sm text-gray-400"
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+          >
+            {resource.description}
+          </motion.p>
+        </div>
+        <Link href={resource.link}>
+          <motion.button
+            whileHover={{ 
+              scale: prefersReducedMotion ? 1 : 1.05,
+              backgroundColor: "rgba(0, 255, 0, 0.15)",
+              borderColor: "rgba(0, 255, 0, 0.6)"
+            }}
+            whileTap={{ 
+              scale: prefersReducedMotion ? 1 : 0.97,
+              backgroundColor: "rgba(0, 255, 0, 0.25)"
+            }}
+            transition={{ 
+              duration: 0.2, 
+              ease: [0.2, 0.65, 0.3, 0.9]
+            }}
+            className="mt-4 sm:mt-0 text-[#00FF00] border border-dashed border-[#00FF00]/30 px-4 py-2 rounded hover:bg-[#00FF00]/10 transition-all duration-300"
+          >
+            Explore
+          </motion.button>
+        </Link>
+      </motion.div>
+      {/* Image hover effect with smoother animations */}
+      <AnimatePresence>
+        {isHovered && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ 
+              duration: 0.4, 
+              ease: [0.16, 1, 0.3, 1],
+              opacity: { duration: 0.25 }
+            }}
+            className="w-full aspect-[6/1] relative overflow-hidden"
+          >
+            <motion.img
+              initial={{ scale: 1.1, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 1.05, y: 5 }}
+              transition={{ duration: 0.5 }}
+              src={resource.image}
+              alt={resource.title}
+              className="w-full h-full object-cover"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  )
+}
 
 export default function Resources() {
   const resources = [
     {
       id: 1,
       title: "Cybersecurity Resources",
-      description: "Discover and share valuable cybersecurity resources with the community Share Resource",
+      description: "Discover and share valuable cybersecurity resources with the community",
       link: "/resources",
       image: "https://i.imgur.com/hVbtsgQ.jpeg"
     },
@@ -34,6 +139,32 @@ export default function Resources() {
     }
   ]
 
+  const prefersReducedMotion = useReducedMotion()
+
+  // Staggered entrance animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { 
+        staggerChildren: 0.15,
+        delayChildren: 0.3
+      }
+    }
+  }
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: { 
+        duration: 0.6, 
+        ease: [0.16, 1, 0.3, 1]
+      }
+    }
+  }
+
   return (
     <div
       className="relative min-h-screen bg-black overflow-hidden"
@@ -41,102 +172,126 @@ export default function Resources() {
         fontFamily: "Menlo, Monaco, Consolas, 'Courier New', monospace"
       }}
     >
-      {/* Header with dashed border and digital rain line */}
+      {/* Header with enhanced scan line effect */}
       <header className="relative z-10 border-b border-dashed border-[#00FF00]/20">
         <div className="h-1 w-full bg-gradient-to-r from-[#00FF00]/0 via-[#00FF00]/30 to-[#00FF00]/0">
           <motion.div 
-            initial={{ x: '-100%' }}
+            initial={{ x: '-100%', width: '25%' }}
             animate={{ x: '100%' }}
-            transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}
-            className="h-full w-32 bg-gradient-to-r from-[#00FF00]/0 via-[#00FF00]/60 to-[#00FF00]/0"
+            transition={{ 
+              repeat: Infinity, 
+              duration: 3.5, 
+              ease: "easeInOut",
+              repeatType: "loop"
+            }}
+            className="h-full bg-gradient-to-r from-[#00FF00]/0 via-[#00FF00]/80 to-[#00FF00]/0"
           />
         </div>
         <div className="max-w-7xl mx-auto px-8 py-6 bg-black/90 backdrop-blur-sm">
-          <h1 className="text-4xl font-bold text-[#00FF00]">RESOURCES</h1>
-          <p className="mt-2 text-gray-400 tracking-wide">
+          <motion.h1 
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ 
+              duration: 0.7, 
+              ease: [0.16, 1, 0.3, 1] 
+            }}
+            className="text-4xl font-bold text-[#00FF00]"
+          >
+            RESOURCES
+          </motion.h1>
+          <motion.p 
+            initial={{ opacity: 0, clipPath: "inset(0 100% 0 0)" }}
+            animate={{ opacity: 1, clipPath: "inset(0 0% 0 0)" }}
+            transition={{ 
+              duration: 1, 
+              delay: 0.3,
+              ease: [0.25, 1, 0.5, 1] 
+            }}
+            className="mt-2 text-gray-400 tracking-wide"
+          >
             Explore our collection of cyber resources.
-          </p>
+          </motion.p>
         </div>
       </header>
 
-      {/* Main Content: Resource cards with increased spacing */}
+      {/* Main Content with staggered animations */}
       <main className="relative z-10 px-8 py-12">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-rows-4 gap-4">
-            {resources.map((resource, index) => (
-              <motion.div
-                key={resource.id}
-                className="relative overflow-hidden border border-dashed border-[#00FF00] rounded-none"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: index * 0.3 }}
-              >
-                {/* Background image with subtle scaling on hover */}
-                <motion.div
-                  className="absolute inset-0 bg-cover bg-center"
-                  style={{ backgroundImage: `url(${resource.image})` }}
-                  initial={{ scale: 1 }}
-                  whileHover={{ scale: 1.05, transition: { duration: 0.8, ease: "easeInOut" } }}
-                />
-
-                {/* Gradient overlay for smooth fade on the sides */}
-                <motion.div
-                  className="absolute inset-0"
-                  initial={{ opacity: 1 }}
-                  whileHover={{ opacity: 1, transition: { duration: 0.8, ease: "easeInOut" } }}
-                  style={{
-                    background:
-                      "linear-gradient(to right, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 10%, transparent 50%, rgba(0,0,0,0.85) 90%, rgba(0,0,0,0.95) 100%)"
-                  }}
-                />
-
-                {/* Resource content */}
-                <div className="relative z-10 p-6 flex flex-col sm:flex-row items-center justify-between bg-black/40">
-                  <div>
-                    <motion.h2 
-                      className="text-2xl font-bold mb-2 text-[#00FF00]"
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.6, delay: 0.2 }}
-                    >
-                      {resource.title}
-                    </motion.h2>
-                    <motion.p 
-                      className="text-sm text-gray-400"
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.6, delay: 0.3 }}
-                    >
-                      {resource.description}
-                    </motion.p>
-                  </div>
-                  <Link href={resource.link}>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      className="mt-4 sm:mt-0 text-[#00FF00] border border-dashed border-[#00FF00]/30 px-4 py-2 rounded hover:bg-[#00FF00]/10 transition-colors duration-300"
-                    >
-                      Explore
-                    </motion.button>
-                  </Link>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
+        <motion.div 
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="max-w-7xl mx-auto flex flex-col gap-4"
+        >
+          {resources.map((resource) => (
+            <motion.div
+              key={resource.id}
+              variants={itemVariants}
+            >
+              <ResourceCard resource={resource} />
+            </motion.div>
+          ))}
+        </motion.div>
       </main>
 
-      {/* Footer */}
+      {/* Footer with pulsating effect */}
       <footer className="absolute bottom-0 left-0 right-0 z-10 px-8 py-6">
         <div className="flex justify-between items-center">
           <div className="flex space-x-1 text-xs text-gray-500">
             <span>0</span>
-            <span className="text-[#00FF00]">1</span>
+            <motion.span 
+              animate={{ 
+                opacity: [0.4, 1, 0.4], 
+                textShadow: ["0 0 0px #00FF00", "0 0 8px #00FF00", "0 0 0px #00FF00"]
+              }}
+              transition={{ 
+                duration: 2.5, 
+                repeat: Infinity,
+                repeatType: "reverse",
+                ease: "easeInOut"
+              }}
+              className="text-[#00FF00]"
+            >
+              1
+            </motion.span>
           </div>
           <div className="text-[10px] text-gray-500">
             2025 © CyberVerse: Beyond All Things Cyber.
           </div>
         </div>
       </footer>
+
+      {/* Enhanced background grid effect with subtle animation */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.1 }}
+          transition={{ duration: 2 }}
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `radial-gradient(#00FF00 1px, transparent 1px)`,
+            backgroundSize: '30px 30px'
+          }}
+        />
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ 
+            opacity: [0.03, 0.06, 0.03],
+            scale: [0.98, 1.02, 0.98]
+          }}
+          transition={{ 
+            duration: 8, 
+            repeat: Infinity,
+            repeatType: "reverse",
+            ease: "easeInOut"
+          }}
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `radial-gradient(#00FF00 1px, transparent 1px)`,
+            backgroundSize: '50px 50px',
+            backgroundPosition: '25px 25px'
+          }}
+        />
+      </div>
     </div>
   )
 }
