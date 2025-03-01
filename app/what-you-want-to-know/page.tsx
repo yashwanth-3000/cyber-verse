@@ -118,10 +118,10 @@ export default function Resources() {
     },
     {
       id: 2,
-      title: "Resource Two",
-      description: "A brief overview of Resource Two.",
-      link: "/resources/2",
-      image: "/images/resource2.jpg"
+      title: "Cyber-verse Chat Bot",
+      description: "Your guide to the digital realm. Ask chat bot about anything about cybersecurity, hacking, defense, or technical concepts.",
+      link: "/ai-chat",
+      image: "https://i.imgur.com/pjCk3R2.jpeg"
     },
     {
       id: 3,
