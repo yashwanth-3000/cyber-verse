@@ -3,7 +3,21 @@ import { useState } from "react"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import Link from "next/link"
 
-function ResourceCard({ resource }) {
+// Define the shape of a resource object
+interface Resource {
+  id: number;
+  title: string;
+  description: string;
+  link: string;
+  image: string;
+}
+
+// Define the props for the ResourceCard component
+interface ResourceCardProps {
+  resource: Resource;
+}
+
+function ResourceCard({ resource }: ResourceCardProps) {
   const [isHovered, setIsHovered] = useState(false)
   const prefersReducedMotion = useReducedMotion()
   
@@ -17,6 +31,20 @@ function ResourceCard({ resource }) {
         mass: 0.5,
         velocity: 2
       }
+  
+  // Define button animation variants based on hover state
+  const buttonVariants = {
+    normal: {
+      scale: 1,
+      backgroundColor: "transparent",
+      borderColor: "rgba(0, 255, 0, 0.3)"
+    },
+    highlighted: {
+      scale: prefersReducedMotion ? 1 : 1.05,
+      backgroundColor: "rgba(0, 255, 0, 0.15)",
+      borderColor: "rgba(0, 255, 0, 0.6)"
+    }
+  }
 
   return (
     <motion.div
@@ -58,11 +86,8 @@ function ResourceCard({ resource }) {
         </div>
         <Link href={resource.link}>
           <motion.button
-            whileHover={{ 
-              scale: prefersReducedMotion ? 1 : 1.05,
-              backgroundColor: "rgba(0, 255, 0, 0.15)",
-              borderColor: "rgba(0, 255, 0, 0.6)"
-            }}
+            animate={isHovered ? "highlighted" : "normal"}
+            variants={buttonVariants}
             whileTap={{ 
               scale: prefersReducedMotion ? 1 : 0.97,
               backgroundColor: "rgba(0, 255, 0, 0.25)"
@@ -71,7 +96,7 @@ function ResourceCard({ resource }) {
               duration: 0.2, 
               ease: [0.2, 0.65, 0.3, 0.9]
             }}
-            className="mt-4 sm:mt-0 text-[#00FF00] border border-dashed border-[#00FF00]/30 px-4 py-2 rounded hover:bg-[#00FF00]/10 transition-all duration-300"
+            className="mt-4 sm:mt-0 text-[#00FF00] border border-dashed px-4 py-2 rounded hover:bg-[#00FF00]/10 transition-all duration-300"
           >
             Explore
           </motion.button>
@@ -108,7 +133,8 @@ function ResourceCard({ resource }) {
 }
 
 export default function Resources() {
-  const resources = [
+  // Define an array of resources using the Resource type
+  const resources: Resource[] = [
     {
       id: 1,
       title: "Cybersecurity Resources",
@@ -141,7 +167,7 @@ export default function Resources() {
 
   const prefersReducedMotion = useReducedMotion()
 
-  // Staggered entrance animation variants
+  // Staggered entrance animation variants for the resource cards
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: { 
@@ -172,7 +198,7 @@ export default function Resources() {
         fontFamily: "Menlo, Monaco, Consolas, 'Courier New', monospace"
       }}
     >
-      {/* Header with enhanced scan line effect */}
+      {/* Header with scan line effect and back arrow button */}
       <header className="relative z-10 border-b border-dashed border-[#00FF00]/20">
         <div className="h-1 w-full bg-gradient-to-r from-[#00FF00]/0 via-[#00FF00]/30 to-[#00FF00]/0">
           <motion.div 
@@ -187,30 +213,43 @@ export default function Resources() {
             className="h-full bg-gradient-to-r from-[#00FF00]/0 via-[#00FF00]/80 to-[#00FF00]/0"
           />
         </div>
-        <div className="max-w-7xl mx-auto px-8 py-6 bg-black/90 backdrop-blur-sm">
-          <motion.h1 
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ 
-              duration: 0.7, 
-              ease: [0.16, 1, 0.3, 1] 
-            }}
-            className="text-4xl font-bold text-[#00FF00]"
-          >
-            RESOURCES
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0, clipPath: "inset(0 100% 0 0)" }}
-            animate={{ opacity: 1, clipPath: "inset(0 0% 0 0)" }}
-            transition={{ 
-              duration: 1, 
-              delay: 0.3,
-              ease: [0.25, 1, 0.5, 1] 
-            }}
-            className="mt-2 text-gray-400 tracking-wide"
-          >
-            Explore our collection of cyber resources.
-          </motion.p>
+        <div className="max-w-7xl mx-auto px-8 py-6 bg-black/90 backdrop-blur-sm flex items-center">
+          <Link href="/">
+            <motion.button 
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+              className="p-2 mr-4 border border-dashed border-[#00FF00] text-[#00FF00] hover:bg-[#00FF00] hover:text-black transition-all duration-300 rounded-md"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </motion.button>
+          </Link>
+          <div>
+            <motion.h1 
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ 
+                duration: 0.7, 
+                ease: [0.16, 1, 0.3, 1] 
+              }}
+              className="text-4xl font-bold text-[#00FF00]"
+            >
+              RESOURCES
+            </motion.h1>
+            <motion.p 
+              initial={{ opacity: 0, clipPath: "inset(0 100% 0 0)" }}
+              animate={{ opacity: 1, clipPath: "inset(0 0% 0 0)" }}
+              transition={{ 
+                duration: 1, 
+                delay: 0.3,
+                ease: [0.25, 1, 0.5, 1] 
+              }}
+              className="mt-2 text-gray-400 tracking-wide"
+            >
+              Explore our collection of cyber resources.
+            </motion.p>
+          </div>
         </div>
       </header>
 
