@@ -37,10 +37,10 @@ export const createResource = async (resourceData: ResourceInput, userId: string
   const supabase = createSupabaseBrowserClient();
   
   try {
-    // Check if user is authenticated
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      console.error('User not authenticated');
+    // Check if user is authenticated using the secure method
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error('User not authenticated:', userError?.message);
       return { success: false, error: 'User not authenticated. Please log in again.' };
     }
 

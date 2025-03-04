@@ -6,17 +6,15 @@ export async function GET() {
   const cookieStore = cookies();
   const supabase = createSupabaseServerClient();
   
-  // Get current user session
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  // Get current user with authenticated method
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
   
-  if (sessionError || !session) {
+  if (userError || !user) {
     return NextResponse.json(
       { error: 'Not authenticated' },
       { status: 401 }
     );
   }
-  
-  const user = session.user;
   
   // Extract user profile data
   const userProfile = {

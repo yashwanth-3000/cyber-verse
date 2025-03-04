@@ -15,6 +15,8 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { createPortal } from "react-dom";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Message {
   role: 'user' | 'assistant';
@@ -324,6 +326,20 @@ const ReactMarkdownWithNoSSR = dynamic(
   { ssr: false }
 );
 
+// Function to render portal content
+const ClientPortal = ({ children }: { children: React.ReactNode }) => {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+  
+  if (!mounted) return null;
+  
+  return createPortal(children, document.body);
+};
+
 export default function AIChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -333,7 +349,15 @@ export default function AIChat() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [highlightClearBtn, setHighlightClearBtn] = useState(false);
+  
+  // URL inputs
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [showYoutubeInput, setShowYoutubeInput] = useState(false);
+  const [showWebsiteInput, setShowWebsiteInput] = useState(false);
+  const [isYoutubeMode, setIsYoutubeMode] = useState(false); // New state to track YouTube mode
   const router = useRouter();
+  const { toast } = useToast();
 
   // Fetch user profile from /api/account
   useEffect(() => {
@@ -409,6 +433,13 @@ export default function AIChat() {
     }
   }, [messages, isLoading, isAtBottom]);
 
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (messages.length > 0 && isAtBottom) {
+      scrollToBottom();
+    }
+  }, [messages, isAtBottom]);
+
   const formatApiResponse = (text: string): string => {
     let formatted = text.trim();
     
@@ -430,37 +461,405 @@ export default function AIChat() {
     return formatted;
   };
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
-    const userMessage: Message = { role: 'user', content: input.trim() };
-    setMessages(prev => [...prev, userMessage]);
-    setIsLoading(true);
-    setIsAtBottom(true);
+  // Call webhook for YouTube analysis
+  const callYoutubeWebhook = async (url: string) => {
+    // DEBUG EVERYTHING
+    console.log("---------------------------------------------");
+    console.log("🔴 YOUTUBE WEBHOOK CALLED");
+    console.log("🔴 Input text:", input);
+    console.log("🔴 YouTube URL:", url);
+    console.log("---------------------------------------------");
+    
+    // CRITICAL FIX: Ensure we have both a URL and query
+    if (!url) {
+      console.log("🔴 ERROR: Missing YouTube URL - cannot proceed");
+      alert("Error: YouTube URL is missing. Please add a YouTube URL first.");
+      return null;
+    }
+    
+    if (!input) {
+      console.log("🔴 ERROR: No query text provided");
+      alert("Please enter a question about the video.");
+      return null;
+    }
+    
     try {
-      const userInput = input.trim();
-      setInput('');
-      const response = await fetch('/api/chat', {
+      // Build a payload with exactly what we need
+      const payload = {
+        user_url: url,         // The YouTube URL
+        user_querry: input,    // The user's query about the video
+        user_memory: ""        // No memory needed for initial implementation
+      };
+      
+      console.log("🔴 YouTube URL:", payload.user_url);
+      console.log("🔴 Query:", payload.user_querry);
+      console.log("🔴 RAW PAYLOAD:", JSON.stringify(payload, null, 2));
+      
+      // Send the POST request - ONLY to YouTube webhook
+      const response = await fetch('https://api-lr.agent.ai/v1/agent/ebgd50lk0tczyd8r/webhook/1c9f7a54', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [...messages, userMessage] }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       });
+      
+      const responseText = await response.text();
+      console.log("🔴 WEBHOOK RESPONSE:", responseText);
+      
       if (!response.ok) {
-        throw new Error(`API responded with status: ${response.status}`);
+        console.error("🔴 WEBHOOK FAILED WITH STATUS:", response.status);
+        alert("YouTube analysis failed. Please try again.");
+        return null;
       }
       
-      // Get the response and format it properly
-      const responseText = await response.text();
-      const formattedResponse = formatApiResponse(responseText);
+      console.log("🔴 WEBHOOK CALL SUCCESSFUL");
       
-      // Store the formatted response immediately and display it without animation
-      setMessages(prev => [...prev, { role: 'assistant', content: formattedResponse }]);
-      
-      // Highlight the clear button after receiving a response
-      setHighlightClearBtn(true);
+      // Parse the response JSON and return it
+      try {
+        const parsedResponse = JSON.parse(responseText);
+        console.log("🔴 PARSED RESPONSE:", parsedResponse);
+        
+        // Return the parsed response so we can use it directly
+        return parsedResponse;
+      } catch (parseError) {
+        console.error("🔴 ERROR PARSING RESPONSE:", parseError);
+        return null;
+      }
       
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error("🔴 ERROR CALLING WEBHOOK:", error);
+      alert("Error analyzing YouTube video. Please try again later.");
+      return null;
+    }
+  };
+
+  // Save YouTube URL
+  const handleYoutubeUrlSave = async (e: FormEvent) => {
+    e.preventDefault();
+    
+    console.log("---------------------------------------------");
+    console.log("🔴 YOUTUBE SAVE BUTTON PRESSED");
+    console.log("🔴 Current URL:", youtubeUrl || "NONE");
+    console.log("---------------------------------------------");
+    
+    // Validate YouTube URL
+    if (!youtubeUrl || !youtubeUrl.trim()) {
+      console.log("🔴 Empty YouTube URL, showing error");
+      alert("Please enter a YouTube URL");
+      return;
+    }
+    
+    const trimmedUrl = youtubeUrl.trim();
+    const isValidUrl = trimmedUrl.includes('youtube.com/watch') || 
+                      trimmedUrl.includes('youtu.be/') || 
+                      trimmedUrl.includes('youtube.com/embed/');
+    
+    if (!isValidUrl) {
+      console.log("🔴 Invalid YouTube URL format:", trimmedUrl);
+      alert("Please enter a valid YouTube URL (youtube.com/watch or youtu.be)");
+      return;
+    }
+    
+    // CRITICAL FIX: URL is valid, set it and close the modal immediately
+    console.log("🔴 Valid YouTube URL saved:", trimmedUrl);
+    
+    // Clear any website URL
+    if (websiteUrl) {
+      setWebsiteUrl('');
+    }
+    
+    // Save URL and activate YouTube mode
+    setYoutubeUrl(trimmedUrl);
+    setIsYoutubeMode(true);
+    
+    // Close modal immediately 
+    setShowYoutubeInput(false);
+    
+    // Show success message
+    alert("YouTube URL saved! Now type your question about the video and click Send.");
+    
+    // DON'T call the webhook yet - we'll wait for the user to enter their query and hit Send
+  };
+  
+  // Handle YouTube button click
+  const toggleYoutubeInput = () => {
+    console.log("[SERVER] ===== YOUTUBE BUTTON CLICKED =====");
+    console.log(`[SERVER] Current YouTube mode: ${isYoutubeMode ? 'ACTIVE' : 'INACTIVE'}`);
+    console.log(`[SERVER] Current YouTube URL: '${youtubeUrl || ''}'`);
+    console.log(`[SERVER] Show YouTube input: ${showYoutubeInput ? 'SHOWING' : 'HIDDEN'}`);
+    
+    // Toggle YouTube input visibility
+    if (showYoutubeInput) {
+      console.log("[SERVER] HIDING YouTube input modal");
+      setShowYoutubeInput(false);
+      return;
+    }
+    
+    // Close website input if open and clear its value
+    if (showWebsiteInput) {
+      console.log("[SERVER] Closing website input and clearing website URL");
+      setShowWebsiteInput(false);
+      setWebsiteUrl('');
+    }
+    
+    // Show YouTube input
+    console.log("[SERVER] SHOWING YouTube input modal");
+    setShowYoutubeInput(true);
+    
+    // If there's already a YouTube URL, make sure mode is active
+    // But don't call webhook yet - that happens on form submit
+    if (youtubeUrl) {
+      console.log(`[SERVER] Existing YouTube URL found: '${youtubeUrl}'`);
+      console.log("[SERVER] Ensuring YouTube mode is active");
+      
+      if (!isYoutubeMode) {
+        console.log("[SERVER] Activating YouTube mode");
+        setIsYoutubeMode(true);
+      }
+    }
+  };
+  
+  // Clear YouTube URL
+  const clearYoutubeUrl = () => {
+    console.log("[SERVER] ===== CLEARING YOUTUBE URL =====");
+    console.log("[SERVER] Removing YouTube URL from state and session storage");
+    setYoutubeUrl('');
+    sessionStorage.removeItem('lastYoutubeUrl');
+    console.log("[SERVER] Deactivating YouTube mode");
+    setIsYoutubeMode(false);
+    console.log("[SERVER] YouTube mode deactivated");
+  };
+  
+  // Handle website button click
+  const toggleWebsiteInput = () => {
+    console.log("---------------------------------------------");
+    console.log("🔵 WEBSITE INPUT TOGGLED");
+    console.log("🔵 Current state:", showWebsiteInput ? "SHOWING" : "HIDDEN");
+    console.log("---------------------------------------------");
+    
+    // If website input is already showing, just hide it
+    if (showWebsiteInput) {
+      console.log("🔵 Hiding website input field");
+      setShowWebsiteInput(false);
+      return;
+    }
+    
+    // Close YouTube input if open and clear its value
+    if (showYoutubeInput) {
+      console.log("🔵 Closing YouTube input and clearing YouTube URL");
+      setShowYoutubeInput(false);
+      setYoutubeUrl('');
+      setIsYoutubeMode(false);
+    }
+    
+    // Show website input
+    console.log("🔵 Showing website input field");
+    setShowWebsiteInput(true);
+  };
+  
+  // Save website URL
+  const handleWebsiteUrlSave = (e: FormEvent) => {
+    e.preventDefault();
+    
+    console.log("---------------------------------------------");
+    console.log("🔵 WEBSITE SAVE BUTTON PRESSED");
+    console.log("🔵 Current URL:", websiteUrl || "NONE");
+    console.log("---------------------------------------------");
+    
+    // Validate website URL
+    if (!websiteUrl || !websiteUrl.trim()) {
+      console.log("🔵 Empty website URL, showing error");
+      alert("Please enter a website URL");
+      return;
+    }
+    
+    const trimmedUrl = websiteUrl.trim();
+    
+    // Basic URL validation
+    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+      console.log("🔵 Invalid website URL format:", trimmedUrl);
+      alert("Please enter a valid URL starting with http:// or https://");
+      return;
+    }
+    
+    // URL is valid, clear any YouTube URL if present
+    if (youtubeUrl) {
+      console.log("🔵 Clearing YouTube URL since website URL is being used");
+      setYoutubeUrl('');
+      setIsYoutubeMode(false);
+    }
+    
+    // Save the URL and close the modal
+    console.log("🔵 Valid website URL saved:", trimmedUrl);
+    setWebsiteUrl(trimmedUrl);
+    setShowWebsiteInput(false);
+  };
+  
+  // Clear website URL
+  const clearWebsiteUrl = () => {
+    console.log("---------------------------------------------");
+    console.log("🔵 CLEARING WEBSITE URL");
+    console.log("🔵 Current URL being cleared:", websiteUrl);
+    console.log("---------------------------------------------");
+    setWebsiteUrl('');
+  };
+
+  // Modify the handleSubmit function to call the webhook when a message with YouTube URL is sent
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    // Basic validation
+    if (!input.trim()) {
+      console.log("🔴 Submit canceled: No input text provided");
+      return;
+    }
+    
+    if (isLoading) {
+      console.log("🔴 Submit canceled: Already processing a request");
+      return;
+    }
+    
+    // Check if both URL inputs are present
+    if (youtubeUrl && websiteUrl) {
+      console.log("🔴 Submit canceled: Both YouTube and website URLs present");
+      alert("Please use either YouTube URL or website URL, not both at the same time");
+      return;
+    }
+    
+    console.log("---------------------------------------------");
+    console.log("🔴 SUBMITTING MESSAGE");
+    console.log("🔴 YouTube Mode:", isYoutubeMode ? "ACTIVE" : "INACTIVE");
+    console.log("🔴 YouTube URL:", youtubeUrl || "NONE");
+    console.log("🔴 Website URL:", websiteUrl || "NONE");
+    console.log("🔴 Input Text:", input);
+    console.log("---------------------------------------------");
+    
+    // Create message content for display in the chat
+    let messageContent = input.trim();
+    
+    // Add URL to the message content for display purposes only
+    if (youtubeUrl) {
+      messageContent += `\n\nYouTube URL: ${youtubeUrl}`;
+      console.log("🔴 Including YouTube URL in displayed message");
+    } else if (websiteUrl) {
+      messageContent += `\n\nWebsite URL: ${websiteUrl}`;
+      console.log("🔵 Including Website URL in displayed message");
+    }
+    
+    // Add the user message to the chat
+    const userMessage: Message = { role: 'user', content: messageContent };
+    setMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
+    
+    try {
+      // Handle different modes with completely separate logic paths
+      if (youtubeUrl) {
+        console.log("🔴 USING YOUTUBE WEBHOOK EXCLUSIVELY");
+        
+        // Make sure YouTube mode is active
+        if (!isYoutubeMode) {
+          setIsYoutubeMode(true);
+        }
+        
+        // Call the YouTube webhook and get the response directly
+        const youtubeResponse = await callYoutubeWebhook(youtubeUrl);
+        
+        if (youtubeResponse && youtubeResponse.response) {
+          // Use the YouTube webhook response directly
+          console.log("🔴 USING YOUTUBE RESPONSE DIRECTLY");
+          
+          // Add the assistant's response to the chat
+          setMessages(prev => [
+            ...prev, 
+            { role: 'assistant', content: youtubeResponse.response }
+          ]);
+          
+          // Clear input field but keep the YouTube URL
+          setInput('');
+          
+          // Highlight the clear button
+          setTimeout(() => {
+            setHighlightClearBtn(true);
+          }, 1000);
+        } else {
+          // Handle error
+          console.error("🔴 No valid response from YouTube webhook");
+          setMessages(prev => [
+            ...prev, 
+            { role: 'assistant', content: 'Sorry, there was an error analyzing the YouTube video.' }
+          ]);
+        }
+      } else if (websiteUrl) {
+        console.log("🔵 USING WEBSITE WEBHOOK EXCLUSIVELY");
+        
+        // Call the website webhook and get the response directly
+        const websiteResponse = await callWebsiteWebhook(websiteUrl);
+        
+        if (websiteResponse && websiteResponse.response) {
+          // Use the website webhook response directly
+          console.log("🔵 USING WEBSITE RESPONSE DIRECTLY");
+          
+          // Add the assistant's response to the chat
+          setMessages(prev => [
+            ...prev, 
+            { role: 'assistant', content: websiteResponse.response }
+          ]);
+          
+          // Clear input field but keep the website URL
+          setInput('');
+          
+          // Highlight the clear button
+          setTimeout(() => {
+            setHighlightClearBtn(true);
+          }, 1000);
+        } else {
+          // Handle error
+          console.error("🔵 No valid response from website webhook");
+          setMessages(prev => [
+            ...prev, 
+            { role: 'assistant', content: 'Sorry, there was an error analyzing the website.' }
+          ]);
+        }
+      } else {
+        console.log("🔴 USING REGULAR WEBHOOK EXCLUSIVELY");
+        
+        // Call regular webhook
+        await callRegularWebhook(messageContent);
+        
+        // Clear input
+        setInput('');
+        
+        // Get API response for chat display
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            messages: [...messages, userMessage],
+            metadata: {
+              youtubeUrl: youtubeUrl,
+              websiteUrl: websiteUrl
+            }
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API responded with status: ${response.status}`);
+        }
+        
+        // Format and display the response
+        const responseText = await response.text();
+        const formattedResponse = formatApiResponse(responseText);
+        
+        setMessages(prev => [...prev, { role: 'assistant', content: formattedResponse }]);
+        
+        // Highlight the clear button
+        setTimeout(() => {
+          setHighlightClearBtn(true);
+        }, 1000);
+      }
+    } catch (error) {
+      console.error("🔴 Error sending message:", error);
       setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, there was an error processing your request.' }]);
     } finally {
       setIsLoading(false);
@@ -482,8 +881,123 @@ export default function AIChat() {
   const scrollToBottom = () => {
     const scrollContainer = document.querySelector('.scroll-area-viewport');
     if (scrollContainer) {
-      scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      setIsAtBottom(true);
+      // Use a small timeout to ensure DOM updates are complete before scrolling
+      setTimeout(() => {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        setIsAtBottom(true);
+      }, 100);
+    }
+  };
+
+  // Call the regular webhook for non-YouTube messages
+  const callRegularWebhook = async (message: string) => {
+    if (!message) {
+      console.log("🔴 Regular webhook NOT called: No message provided");
+      return;
+    }
+    
+    console.log(`📝 CALLING REGULAR WEBHOOK with message: ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`);
+    console.log(`📝 YouTube Mode: ${isYoutubeMode ? 'ACTIVE' : 'INACTIVE'}`);
+    
+    try {
+      // Prepare the payload for the webhook
+      const payload = {
+        user_input: message
+      };
+      
+      console.log('📝 Regular webhook payload:', JSON.stringify(payload, null, 2));
+      
+      // Send the POST request to the regular webhook URL
+      const response = await fetch('https://api-lr.agent.ai/v1/agent/k5liv1l80kqmz028/webhook/e6cee581', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      
+      if (!response.ok) {
+        console.error(`🔴 Regular webhook failed with status: ${response.status}`);
+        throw new Error(`Regular webhook API responded with status: ${response.status}`);
+      }
+      
+      console.log('✅ Regular webhook successfully called');
+      
+    } catch (error) {
+      console.error('🔴 Regular webhook error:', error);
+    }
+  };
+  
+  // Call the website webhook - handles website URL analysis
+  const callWebsiteWebhook = async (url: string) => {
+    // DEBUG EVERYTHING
+    console.log("---------------------------------------------");
+    console.log("🔵 WEBSITE WEBHOOK CALLED");
+    console.log("🔵 Input text:", input);
+    console.log("🔵 Website URL:", url);
+    console.log("---------------------------------------------");
+    
+    // Validate inputs
+    if (!url) {
+      console.log("🔵 ERROR: Missing website URL - cannot proceed");
+      alert("Error: Website URL is missing. Please add a website URL first.");
+      return null;
+    }
+    
+    if (!input) {
+      console.log("🔵 ERROR: No query text provided");
+      alert("Please enter a question about the website.");
+      return null;
+    }
+    
+    try {
+      // Build a payload with exactly what the webhook expects
+      const payload = {
+        user_web_url: url,      // The website URL
+        user_querry: input,    // The user's query about the website
+        user_memory: ""        // No memory needed for initial implementation
+      };
+      
+      console.log("🔵 Website URL:", payload.user_web_url);
+      console.log("🔵 Query:", payload.user_querry);
+      console.log("🔵 RAW PAYLOAD:", JSON.stringify(payload, null, 2));
+      
+      // Send the POST request to the website webhook
+      const response = await fetch('https://api-lr.agent.ai/v1/agent/5hobyze3r505nzf6/webhook/7f30add9', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      
+      const responseText = await response.text();
+      console.log("🔵 WEBHOOK RESPONSE:", responseText);
+      
+      if (!response.ok) {
+        console.error("🔵 WEBHOOK FAILED WITH STATUS:", response.status);
+        alert("Website analysis failed. Please try again.");
+        return null;
+      }
+      
+      console.log("🔵 WEBHOOK CALL SUCCESSFUL");
+      
+      // Parse the response JSON and return it
+      try {
+        const parsedResponse = JSON.parse(responseText);
+        console.log("🔵 PARSED RESPONSE:", parsedResponse);
+        
+        // Return the parsed response so we can use it directly
+        return parsedResponse;
+      } catch (parseError) {
+        console.error("🔵 ERROR PARSING RESPONSE:", parseError);
+        return null;
+      }
+      
+    } catch (error) {
+      console.error("🔵 ERROR CALLING WEBHOOK:", error);
+      alert("Error analyzing website. Please try again later.");
+      return null;
     }
   };
 
@@ -554,8 +1068,17 @@ export default function AIChat() {
         /* Adjust scroll area to account for fixed input */
         .chat-scroll-area {
           height: 100%;
-          padding-bottom: 80px;
+          min-height: calc(100vh - 120px);
+          padding-bottom: 120px;
           width: 100%;
+          overflow-y: auto !important;
+        }
+        
+        /* Ensure the ScrollArea viewport takes full height */
+        .scroll-area-viewport {
+          height: 100% !important;
+          max-height: none !important;
+          overflow-y: auto !important;
         }
         
         /* Center content vertically from top */
@@ -564,7 +1087,8 @@ export default function AIChat() {
           flex-direction: column;
           justify-content: flex-start;
           padding-top: 0;
-          min-height: 100%;
+          min-height: calc(100vh - 180px);
+          width: 100%;
         }
         
         /* When there are messages, adjust padding */
@@ -727,25 +1251,39 @@ export default function AIChat() {
         @keyframes rotateBorder {
           0% {
             border-style: dashed;
-            border-color: rgba(60, 255, 100, 0.5);
-            box-shadow: 0 0 5px rgba(60, 255, 100, 0.3);
+            border-color: rgba(60, 255, 100, 0.3);
+            box-shadow: 0 0 3px rgba(60, 255, 100, 0.2);
           }
           50% {
             border-style: dashed;
             border-color: rgba(60, 255, 100, 0.8);
-            box-shadow: 0 0 12px rgba(60, 255, 100, 0.5);
+            box-shadow: 0 0 15px rgba(60, 255, 100, 0.6);
           }
           100% {
             border-style: dashed;
-            border-color: rgba(60, 255, 100, 0.5);
-            box-shadow: 0 0 5px rgba(60, 255, 100, 0.3);
+            border-color: rgba(60, 255, 100, 0.3);
+            box-shadow: 0 0 3px rgba(60, 255, 100, 0.2);
+          }
+        }
+        
+        /* Pulsating glow animation for Clear button */
+        @keyframes pulseGlow {
+          0% {
+            box-shadow: 0 0 5px rgba(60, 255, 100, 0.2);
+          }
+          50% {
+            box-shadow: 0 0 15px rgba(60, 255, 100, 0.6), 0 0 20px rgba(60, 255, 100, 0.3);
+          }
+          100% {
+            box-shadow: 0 0 5px rgba(60, 255, 100, 0.2);
           }
         }
         
         .clear-btn-highlight {
-          animation: rotateBorder 2s infinite;
+          animation: pulseGlow 3s ease-in-out infinite, rotateBorder 8s linear infinite;
           position: relative;
           overflow: hidden;
+          transition: all 0.5s ease;
         }
         
         .clear-btn-highlight::before {
@@ -770,6 +1308,42 @@ export default function AIChat() {
         @keyframes rotate {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        
+        /* Make scroll bar visible on all browsers */
+        ::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+          background: rgba(60, 255, 100, 0.3);
+          border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+          background: rgba(60, 255, 100, 0.5);
+        }
+        
+        /* Style the Radix scrollbar */
+        [data-radix-scroll-area-scrollbar] {
+          width: 10px !important;
+          padding: 0 !important;
+          background-color: rgba(0, 0, 0, 0.2) !important;
+        }
+        
+        [data-radix-scroll-area-thumb] {
+          background-color: rgba(60, 255, 100, 0.3) !important;
+          border-radius: 10px !important;
+        }
+        
+        [data-radix-scroll-area-thumb]:hover {
+          background-color: rgba(60, 255, 100, 0.5) !important;
         }
       `}</style>
       <div className="flex flex-col h-screen bg-black text-gray-300">
@@ -809,19 +1383,24 @@ export default function AIChat() {
                   onClick={clearChat}
                   variant="ghost"
                   size="sm"
+                  title={highlightClearBtn ? "Clear this conversation" : "Clear chat"}
+                  aria-label="Clear conversation"
                   className={`h-8 px-3 py-2 text-white group transition-all duration-200 bg-black/40 backdrop-blur-sm border border-dashed border-[#00FF00] shadow-md relative overflow-hidden cyber-btn ${highlightClearBtn ? 'clear-btn-highlight' : ''}`}
                 >
                   <div className="matrix-drop"></div>
                   <Trash2 className="h-4 w-4 mr-2 text-red-500 group-hover:scale-110 transition-transform duration-200" />
-                  <span className="text-xs font-medium">Clear</span>
+                  <span className="text-xs font-medium">{highlightClearBtn ? "Clear Chat" : "Clear"}</span>
                 </Button>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        <div className="flex-1 overflow-hidden relative">
-          <ScrollArea className={`h-full chat-scroll-area ${messages.length > 0 ? 'has-messages' : ''}`} onScroll={handleScroll}>
+        <div className="flex-1 overflow-hidden relative" style={{ height: 'calc(100vh - 120px)' }}>
+          <ScrollArea 
+            className={`h-full chat-scroll-area ${messages.length > 0 ? 'has-messages' : ''}`} 
+            onScroll={handleScroll}
+          >
             <div className="centered-content">
               <div className="messages-container">
                 {messages.length === 0 && (
@@ -1146,6 +1725,55 @@ export default function AIChat() {
                   </motion.div>
                 )}
               </div>
+              
+              {/* URL Input buttons */}
+              <div className="flex items-center">
+                <div className="flex space-x-2">
+                  {/* YouTube button */}
+                  <motion.button
+                    type="button"
+                    onClick={toggleYoutubeInput}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={`relative rounded-md p-2 ${youtubeUrl ? 'bg-red-500/20' : 'bg-black/40'} border border-dashed ${youtubeUrl ? 'border-red-500' : 'border-[#00FF00]'} transition-colors duration-300`}
+                    title={youtubeUrl ? "YouTube URL added - Click to edit" : "Add YouTube URL"}
+                    disabled={isLoading}
+                  >
+                    {youtubeUrl && (
+                      <motion.div 
+                        className="absolute inset-0 bg-red-500/10 rounded-md"
+                        animate={{ boxShadow: ['0 0 5px rgba(255, 0, 0, 0.3)', '0 0 10px rgba(255, 0, 0, 0.6)', '0 0 5px rgba(255, 0, 0, 0.3)'] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                      />
+                    )}
+                    <svg className={`w-4 h-4 ${youtubeUrl ? 'text-red-500' : websiteUrl ? 'text-gray-500' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                  </motion.button>
+
+                  {/* Website button */}
+                  <motion.button
+                    type="button"
+                    onClick={toggleWebsiteInput}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={`relative rounded-md p-2 ${websiteUrl ? 'bg-blue-500/20' : 'bg-black/40'} border border-dashed ${websiteUrl ? 'border-blue-500' : 'border-[#00FF00]'} transition-colors duration-300`}
+                    title={websiteUrl ? "Website URL added - Click to edit" : "Add website URL"}
+                    disabled={isLoading}
+                  >
+                    {websiteUrl && (
+                      <motion.div 
+                        className="absolute inset-0 bg-blue-500/10 rounded-md"
+                        animate={{ boxShadow: ['0 0 5px rgba(0, 100, 255, 0.3)', '0 0 10px rgba(0, 100, 255, 0.6)', '0 0 5px rgba(0, 100, 255, 0.3)'] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                      />
+                    )}
+                    <svg className={`w-4 h-4 ${websiteUrl ? 'text-blue-500' : youtubeUrl ? 'text-gray-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+                    </svg>
+                  </motion.button>
+                </div>
+              </div>
             </div>
             <motion.div
               variants={sendButtonAnimation}
@@ -1182,10 +1810,204 @@ export default function AIChat() {
               </Button>
             </motion.div>
           </form>
-          <div className="text-[10px] text-center text-[#00FF00] mt-1">
-            CyberVerse AI may display inaccurate information.
+          <div className="text-[10px] text-center mt-1">
+            {(youtubeUrl || websiteUrl) ? (
+              <div className="space-y-1">
+                <div className={`${youtubeUrl && websiteUrl ? 'text-yellow-400' : youtubeUrl ? 'text-red-400' : 'text-blue-400'}`}>
+                  {youtubeUrl && websiteUrl ? (
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                    >
+                      Note: Only one URL will be processed with your message.
+                    </motion.div>
+                  ) : youtubeUrl ? (
+                    <span>YouTube video added to query</span>
+                  ) : (
+                    <span>Website URL added to query</span>
+                  )}
+                </div>
+                <div className="text-[#00FF00]">
+                  CyberVerse AI may display inaccurate information.
+                </div>
+              </div>
+            ) : (
+              <div className="text-[#00FF00]">
+                CyberVerse AI may display inaccurate information.
+              </div>
+            )}
           </div>
         </div>
+
+        {/* YouTube URL Input Modal */}
+        {showYoutubeInput && (
+          <ClientPortal>
+            <div className="fixed inset-0 flex items-center justify-center z-[100]" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+              <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowYoutubeInput(false)}></div>
+              <AnimatePresence>
+                <motion.div 
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="bg-black/90 border border-dashed border-red-500 rounded-lg p-4 w-full max-w-md z-[101] relative mx-4"
+                >
+                  <form onSubmit={handleYoutubeUrlSave} className="space-y-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-white text-sm font-bold flex items-center">
+                        <svg className="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                        Add YouTube Video
+                      </h3>
+                      <button 
+                        type="button" 
+                        onClick={() => setShowYoutubeInput(false)}
+                        className="text-gray-400 hover:text-white"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    {websiteUrl && (
+                      <div className="bg-yellow-500/20 border border-dashed border-yellow-500 rounded px-3 py-2 text-yellow-200 text-xs mb-2">
+                        <div className="flex items-start">
+                          <svg className="w-4 h-4 mr-1 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                          </svg>
+                          <span>You already have a website URL. Adding a YouTube URL will replace it. Only one can be used at a time.</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="relative">
+                      <Input
+                        value={youtubeUrl}
+                        onChange={(e) => setYoutubeUrl(e.target.value)}
+                        placeholder="Paste YouTube URL here..."
+                        className="bg-black border-dashed border-red-500 text-white focus:border-red-500 focus:ring-red-500/10 pl-3 pr-8 py-5 rounded-md transition-all duration-200 text-xs"
+                        autoFocus
+                      />
+                      {youtubeUrl && (
+                        <button 
+                          type="button" 
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                          onClick={clearYoutubeUrl}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="flex space-x-2">
+                      <Button 
+                        type="submit" 
+                        className="bg-red-500/20 hover:bg-red-500/30 border border-dashed border-red-500 text-white py-2 px-4 rounded-md text-xs flex-1"
+                      >
+                        Save
+                      </Button>
+                      <Button 
+                        type="button"
+                        onClick={() => setShowYoutubeInput(false)}
+                        className="bg-black/40 border border-dashed border-gray-500 text-white py-2 px-4 rounded-md text-xs flex-1"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </ClientPortal>
+        )}
+
+        {/* Website URL Input Modal */}
+        {showWebsiteInput && (
+          <ClientPortal>
+            <div className="fixed inset-0 flex items-center justify-center z-[100]" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+              <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowWebsiteInput(false)}></div>
+              <AnimatePresence>
+                <motion.div 
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="bg-black/90 border border-dashed border-blue-500 rounded-lg p-4 w-full max-w-md z-[101] relative mx-4"
+                >
+                  <form onSubmit={handleWebsiteUrlSave} className="space-y-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-white text-sm font-bold flex items-center">
+                        <svg className="w-5 h-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+                        </svg>
+                        Add Website URL
+                      </h3>
+                      <button 
+                        type="button" 
+                        onClick={() => setShowWebsiteInput(false)}
+                        className="text-gray-400 hover:text-white"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    {youtubeUrl && (
+                      <div className="bg-yellow-500/20 border border-dashed border-yellow-500 rounded px-3 py-2 text-yellow-200 text-xs mb-2">
+                        <div className="flex items-start">
+                          <svg className="w-4 h-4 mr-1 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                          </svg>
+                          <span>You already have a YouTube URL. Adding a website URL will replace it. Only one can be used at a time.</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="relative">
+                      <Input
+                        value={websiteUrl}
+                        onChange={(e) => setWebsiteUrl(e.target.value)}
+                        placeholder="Paste website URL here (https://...)..."
+                        className="bg-black border-dashed border-blue-500 text-white focus:border-blue-500 focus:ring-blue-500/10 pl-3 pr-8 py-5 rounded-md transition-all duration-200 text-xs"
+                        autoFocus
+                      />
+                      {websiteUrl && (
+                        <button 
+                          type="button" 
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                          onClick={clearWebsiteUrl}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="flex space-x-2">
+                      <Button 
+                        type="submit" 
+                        className="bg-blue-500/20 hover:bg-blue-500/30 border border-dashed border-blue-500 text-white py-2 px-4 rounded-md text-xs flex-1"
+                      >
+                        Save
+                      </Button>
+                      <Button 
+                        type="button"
+                        onClick={() => setShowWebsiteInput(false)}
+                        className="bg-black/40 border border-dashed border-gray-500 text-white py-2 px-4 rounded-md text-xs flex-1"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </ClientPortal>
+        )}
       </div>
     </>
   );
