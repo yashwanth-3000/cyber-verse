@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import "../phishing-style.css"; // Import custom phishing CSS
 
 // --- Types ---
 interface GameState {
@@ -75,30 +77,72 @@ const securityAlerts: SecurityAlert[] = [
 
 // --- Components ---
 const StartScreen = ({ onStart }: { onStart: () => void }) => (
-  <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center p-4">
-    <div className="max-w-md w-full bg-gray-800 p-8 rounded-2xl shadow-2xl border border-purple-500/20">
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
-          Cyber Defense Challenge
-        </h1>
-        <p className="text-gray-400 mb-2">
-          Your mission: Navigate through advanced security measures and identify legitimate actions.
-        </p>
-        <p className="text-purple-400 text-sm mb-4">
-          Warning: This challenge employs sophisticated deception techniques.
-        </p>
-        <div className="bg-red-900/20 border border-red-500/20 rounded-lg p-4 mb-6">
-          <p className="text-red-400 text-sm font-medium">
-            EXTREME CAUTION: One wrong move will terminate the challenge instantly!
-          </p>
-        </div>
+  <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black flex items-center justify-center p-4">
+    <div className="max-w-md w-full bg-gray-800 rounded-xl shadow-2xl border border-purple-500/30 overflow-hidden">
+      <div className="bg-gradient-to-r from-purple-700 to-purple-900 p-5">
+        <h1 className="text-2xl font-bold text-white">Advanced Phishing Defense</h1>
+        <p className="text-purple-200 text-sm mt-1">Challenge Level 3</p>
       </div>
-      <button
-        onClick={onStart}
-        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 transform hover:scale-105"
-      >
-        Accept Challenge
-      </button>
+      
+      <div className="p-6">
+        <div className="mb-6">
+          <div className="text-purple-300 mb-4 font-medium">
+            This is the most sophisticated level of training. You'll face layered deception techniques used by advanced threat actors.
+          </div>
+          
+          <div className="space-y-4 text-gray-300 text-sm">
+            <div className="bg-gray-900/70 rounded-md p-3 border border-gray-700">
+              <h3 className="font-bold text-purple-400 mb-1.5 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Challenge Features
+              </h3>
+              <ul className="space-y-1 pl-6 list-disc">
+                <li>Multiple security popups with varying levels of deception</li>
+                <li>Simulated system interfaces that appear legitimate</li>
+                <li>Time pressure tactics combined with fear messaging</li>
+                <li>Security alerts that mimic legitimate warnings</li>
+              </ul>
+            </div>
+            
+            <div className="bg-gray-900/70 rounded-md p-3 border border-gray-700">
+              <h3 className="font-bold text-purple-400 mb-1.5 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                How to Succeed
+              </h3>
+              <ul className="space-y-1 pl-6 list-disc">
+                <li>Look for subtle inconsistencies in visuals and messaging</li>
+                <li>Question any request for immediate action under threat</li>
+                <li>Evaluate whether the security action makes logical sense</li>
+                <li>Look for safe dismiss options (often small or hidden)</li>
+              </ul>
+            </div>
+            
+            <div className="bg-purple-900/30 rounded-md p-3 border border-purple-800">
+              <h3 className="font-bold text-purple-300 mb-1.5 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Time Limit
+              </h3>
+              <p>You have <span className="font-bold text-white">45 seconds</span> to complete this challenge.</p>
+            </div>
+          </div>
+        </div>
+        
+        <button
+          onClick={onStart}
+          className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors shadow-md flex items-center justify-center"
+        >
+          Begin Advanced Challenge
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+        </button>
+      </div>
     </div>
   </div>
 );
@@ -179,97 +223,139 @@ const InitialPopup = ({ onAction }: { onAction: (isCorrect: boolean) => void }) 
 );
 
 const SecurityPopup = ({ stage, onAction }: { stage: "popup1" | "popup2" | "popup3", onAction: (isCorrect: boolean) => void }) => (
-  <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
     <motion.div
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      className="bg-gray-800 rounded-2xl shadow-2xl border border-purple-500/20 p-8 max-w-md w-full"
+      className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden"
     >
       {stage === "popup1" ? (
         <>
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-bold text-red-400">⚠️ Critical Security Warning</h3>
+          <div className="bg-red-600 p-4 flex justify-between items-center">
+            <h2 className="text-xl font-bold text-white">⚠️ Critical Security Warning</h2>
             <button
               onClick={() => onAction(true)}
-              className="text-gray-400 hover:text-gray-200 text-sm transition-colors"
+              className="text-white bg-red-700 hover:bg-red-800 h-6 w-6 rounded-full flex items-center justify-center"
             >
-              Dismiss
+              ×
             </button>
           </div>
-          <p className="text-gray-300 mb-6">
-            Multiple malware infections detected. Your banking credentials may be compromised.
-          </p>
-          <div className="space-y-4">
-            <button
-              onClick={() => onAction(false)}
-              className="w-full bg-gradient-to-r from-red-500 to-pink-500 text-white py-3 px-4 rounded-xl font-bold hover:from-red-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105"
-            >
-              Remove Threats Now
-            </button>
-            <button
-              onClick={() => onAction(false)}
-              className="w-full bg-gradient-to-r from-purple-500 to-violet-500 text-white py-3 px-4 rounded-xl font-bold hover:from-purple-600 hover:to-violet-600 transition-all duration-300 transform hover:scale-105"
-            >
-              Full System Scan
-            </button>
+          
+          <div className="p-6 text-gray-800">
+            <p className="mb-3 font-bold text-red-600">
+              Multiple malware infections detected. Your banking credentials may be compromised.
+            </p>
+            <p className="mb-4">
+              Our security scan has detected unusual activity targeting your financial accounts. 
+              Immediate action is required to prevent unauthorized transactions.
+            </p>
+            
+            <div className="flex flex-col space-y-3">
+              <button
+                onClick={() => onAction(false)}
+                className="bg-gradient-to-r from-red-500 to-pink-500 text-white py-3 px-4 rounded-lg font-bold hover:from-red-600 hover:to-pink-600 transition-all"
+              >
+                Remove Threats Now
+              </button>
+              <button
+                onClick={() => onAction(false)}
+                className="bg-gradient-to-r from-purple-500 to-violet-500 text-white py-3 px-4 rounded-lg font-bold hover:from-purple-600 hover:to-violet-600 transition-all"
+              >
+                Full System Scan
+              </button>
+            </div>
           </div>
         </>
       ) : stage === "popup2" ? (
         <>
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-bold text-blue-400">🔒 Account Security Check</h3>
+          <div className="bg-blue-600 p-4 flex justify-between items-center">
+            <h2 className="text-xl font-bold text-white">🔒 System Security Update</h2>
             <button
               onClick={() => onAction(true)}
-              className="text-gray-400 hover:text-gray-200 text-sm transition-colors"
+              className="text-white bg-blue-700 hover:bg-blue-800 h-6 w-6 rounded-full flex items-center justify-center"
             >
-              Later
+              ×
             </button>
           </div>
-          <p className="text-gray-300 mb-6">
-            Your account requires immediate verification due to suspicious activities.
-          </p>
-          <div className="space-y-4">
-            <button
-              onClick={() => onAction(false)}
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 px-4 rounded-xl font-bold hover:from-green-600 hover:to-emerald-600 transition-all duration-300 transform hover:scale-105"
-            >
-              Verify with SMS
-            </button>
-            <button
-              onClick={() => onAction(false)}
-              className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white py-3 px-4 rounded-xl font-bold hover:from-yellow-600 hover:to-orange-600 transition-all duration-300 transform hover:scale-105"
-            >
-              Verify with Email
-            </button>
+          
+          <div className="p-6 text-gray-800">
+            <p className="mb-3 font-bold text-blue-600">
+              Important system security update available
+            </p>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="font-medium">Security Update KB29384756</span>
+              </div>
+              <p className="text-sm mb-1">This update addresses critical security vulnerabilities in your system.</p>
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>Size: 14.3 MB</span>
+                <span>Released: Today</span>
+              </div>
+            </div>
+            
+            <div className="flex flex-col space-y-3">
+              <button
+                onClick={() => onAction(false)}
+                className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-bold transition-colors"
+              >
+                Install Update Now
+              </button>
+              <button
+                onClick={() => onAction(true)}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg text-sm transition-colors"
+              >
+                Remind Me Later
+              </button>
+            </div>
           </div>
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-bold text-purple-400">🔐 Enhanced Security Required</h3>
+          <div className="bg-green-600 p-4 flex justify-between items-center">
+            <h2 className="text-xl font-bold text-white">✅ Account Security Verification</h2>
             <button
               onClick={() => onAction(true)}
-              className="text-gray-400 hover:text-gray-200 text-sm transition-colors"
+              className="text-white bg-green-700 hover:bg-green-800 h-6 w-6 rounded-full flex items-center justify-center"
             >
-              Skip
+              ×
             </button>
           </div>
-          <p className="text-gray-300 mb-6">
-            Enable advanced security features to protect against recent threats.
-          </p>
-          <div className="space-y-4">
-            <button
-              onClick={() => onAction(false)}
-              className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white py-3 px-4 rounded-xl font-bold hover:from-indigo-600 hover:to-purple-600 transition-all duration-300 transform hover:scale-105"
-            >
-              Enable 2FA Now
-            </button>
-            <button
-              onClick={() => onAction(false)}
-              className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white py-3 px-4 rounded-xl font-bold hover:from-cyan-600 hover:to-blue-600 transition-all duration-300 transform hover:scale-105"
-            >
-              Setup Security Key
-            </button>
+          
+          <div className="p-6 text-gray-800">
+            <p className="mb-3 font-medium">
+              Your account shows unusual activity. Please verify your identity to maintain access.
+            </p>
+            
+            <div className="mb-4 space-y-3">
+              <div className="rounded-lg border border-gray-200 p-3">
+                <div className="text-sm text-gray-600 mb-1">🔒 Security Status</div>
+                <div className="font-medium text-orange-500">Verification Required</div>
+              </div>
+              
+              <div className="rounded-lg border border-gray-200 p-3">
+                <div className="text-sm text-gray-600 mb-1">⚠️ Risk Level</div>
+                <div className="font-medium text-red-500">High</div>
+              </div>
+            </div>
+            
+            <div className="flex flex-col space-y-3">
+              <button
+                onClick={() => onAction(false)}
+                className="bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-bold transition-colors"
+              >
+                Verify Account Now
+              </button>
+              <button
+                onClick={() => onAction(true)}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg text-sm transition-colors"
+              >
+                I'll Do This Later
+              </button>
+            </div>
           </div>
         </>
       )}
@@ -338,8 +424,9 @@ const MainChallenge = ({ onAction }: { onAction: (isCorrect: boolean) => void })
       onAction(true);
     } else if (isScam) {
       onAction(false);
+    } else {
+      // If neither scam nor real, do nothing (let them continue playing)
     }
-    // If neither scam nor real, do nothing (let them continue playing)
   };
 
   return (
@@ -354,7 +441,7 @@ const MainChallenge = ({ onAction }: { onAction: (isCorrect: boolean) => void })
               </div>
               <div>
                 <h1 className="text-xl font-bold text-white">SecureBank Pro™</h1>
-                <p className="text-xs text-gray-400">{currentTime.toLocaleTimeString()}</p>
+                <p className="text-sm text-white font-medium">{currentTime.toLocaleTimeString()}</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -387,6 +474,15 @@ const MainChallenge = ({ onAction }: { onAction: (isCorrect: boolean) => void })
           {/* Left Sidebar */}
           <div className="col-span-2 space-y-4">
             <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 border border-purple-500/20">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="h-12 w-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+                  U
+                </div>
+                <div>
+                  <p className="font-bold text-white">User123</p>
+                  <p className="text-sm text-purple-300 hover:text-purple-200 cursor-pointer">View your profile</p>
+                </div>
+              </div>
               <h3 className="text-white font-bold mb-4">Quick Actions</h3>
               <div className="space-y-2">
                 <button
@@ -410,6 +506,28 @@ const MainChallenge = ({ onAction }: { onAction: (isCorrect: boolean) => void })
               </div>
             </div>
             
+            <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 border border-purple-500/20">
+              <h3 className="text-white font-bold mb-3">Navigation</h3>
+              <ul className="space-y-2">
+                <li className="flex items-center space-x-3 p-2 bg-purple-500/20 rounded cursor-pointer">
+                  <span className="text-xl">🏠</span>
+                  <span className="font-medium text-white">Home</span>
+                </li>
+                <li className="flex items-center space-x-3 p-2 hover:bg-purple-500/10 rounded cursor-pointer">
+                  <span className="text-xl">👥</span>
+                  <span className="font-medium text-white">Friends</span>
+                </li>
+                <li className="flex items-center space-x-3 p-2 hover:bg-purple-500/10 rounded cursor-pointer">
+                  <span className="text-xl">🎬</span>
+                  <span className="font-medium text-white">Videos</span>
+                </li>
+                <li className="flex items-center space-x-3 p-2 hover:bg-purple-500/10 rounded cursor-pointer">
+                  <span className="text-xl">🔔</span>
+                  <span className="font-medium text-white">Notifications</span>
+                </li>
+              </ul>
+            </div>
+            
             <div className="bg-red-500/10 backdrop-blur-sm rounded-xl p-4 border border-red-500/20 animate-pulse">
               <h3 className="text-red-400 font-bold mb-2">⚠️ Security Center</h3>
               <p className="text-xs text-red-400 mb-4">Multiple issues detected!</p>
@@ -428,7 +546,7 @@ const MainChallenge = ({ onAction }: { onAction: (isCorrect: boolean) => void })
             <div className="bg-black/30 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-white mb-2">Welcome back, Alex</h2>
+                  <h2 className="text-2xl font-bold text-white mb-2">Welcome back, <span className="text-purple-300">User123</span></h2>
                   <p className="text-sm text-red-400 animate-pulse">⚠️ Last login: Unknown Location</p>
                 </div>
                 <div className="text-right">
@@ -694,35 +812,152 @@ const MainChallenge = ({ onAction }: { onAction: (isCorrect: boolean) => void })
   );
 };
 
-const EndScreen = ({ gameState, onRestart }: { gameState: GameState; onRestart: () => void }) => (
-  <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center p-4">
-    <div className="max-w-md w-full bg-gray-800 p-8 rounded-2xl shadow-2xl border border-purple-500/20 text-center">
-      <h1 className="text-4xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
-        {gameState.success ? "Mission Accomplished! 🎉" : "Mission Failed"}
-      </h1>
-      <p className="text-gray-300 mb-6">
-        {gameState.success
-          ? `Outstanding! You successfully identified all deceptive elements in ${gameState.timeElapsed} seconds!`
-          : "You were deceived by one of the sophisticated traps. Stay vigilant!"}
-      </p>
-      <div className="bg-gray-700/50 p-6 rounded-xl border border-purple-500/20 mb-6">
-        <h2 className="font-bold text-white mb-4">Mission Report</h2>
-        <div className="space-y-2 text-gray-300">
-          <p>Time: {gameState.timeElapsed} seconds</p>
-          <p>Stage: {gameState.stage}</p>
-          <p>Attempts: {gameState.attempts}</p>
-          <p>Wrong Clicks: {gameState.wrongClicks}</p>
-        </div>
-      </div>
-      <button
-        onClick={onRestart}
-        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 transform hover:scale-105"
+const EndScreen = ({ gameState, onRestart }: { gameState: GameState; onRestart: () => void }) => {
+  const router = useRouter();
+  
+  // Calculate score based on time and wrong clicks
+  const calculateScore = () => {
+    if (!gameState.success) return 0;
+    
+    // Base score of 1500 for level 3 (more difficult)
+    const baseScore = 1500;
+    // Deduct 50 points per wrong click
+    const wrongClickPenalty = gameState.wrongClicks * 50;
+    // Deduct 3 points per second taken
+    const timePenalty = Math.floor(gameState.timeElapsed * 3);
+    
+    return Math.max(0, baseScore - wrongClickPenalty - timePenalty);
+  };
+  
+  const finalScore = calculateScore();
+  
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="bg-gray-900 rounded-lg shadow-2xl border border-purple-500/30 max-w-2xl w-full overflow-hidden text-white"
       >
-        Accept New Mission
-      </button>
+        <div className="bg-gradient-to-r from-purple-700 to-purple-900 p-6">
+          <h2 className="text-2xl font-bold text-white flex items-center">
+            {gameState.success ? (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 mr-2 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                Advanced Phishing Challenge Complete!
+              </>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 mr-2 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                Phishing Attempt Succeeded
+              </>
+            )}
+          </h2>
+        </div>
+        
+        <div className="p-6">
+          <div className="mb-6">
+            {gameState.success ? (
+              <div className="text-green-400 bg-green-900/30 border border-green-800 rounded-md p-4 mb-5">
+                <p className="font-medium">
+                  Congratulations! You successfully navigated through sophisticated phishing attempts. 
+                  You demonstrated excellent security awareness under pressure.
+                </p>
+              </div>
+            ) : (
+              <div className="text-red-400 bg-red-900/30 border border-red-800 rounded-md p-4 mb-5">
+                <p className="font-medium">
+                  Unfortunately, you fell for a sophisticated phishing attack. 
+                  Don't worry - learning from these simulations helps build better security habits.
+                </p>
+              </div>
+            )}
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="bg-gray-800/50 rounded-md p-4 border border-gray-700">
+                <h3 className="font-bold text-purple-400 mb-2">Your Performance</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Time:</span>
+                    <span className="font-mono">{gameState.timeElapsed}s</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Wrong Clicks:</span>
+                    <span className="font-mono">{gameState.wrongClicks}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-gray-700 pt-2 mt-2">
+                    <span className="text-gray-300 font-medium">Final Score:</span>
+                    <span className="font-mono font-bold text-purple-300">
+                      {finalScore}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gray-800/50 rounded-md p-4 border border-gray-700">
+                <h3 className="font-bold text-purple-400 mb-2">Key Lessons</h3>
+                <ul className="text-sm space-y-1.5">
+                  <li className="flex items-start">
+                    <span className="text-purple-400 mr-2">•</span>
+                    <span>Security popups from legitimate sources won't use urgent threats</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-400 mr-2">•</span>
+                    <span>System warnings appear differently than browser popups</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-400 mr-2">•</span>
+                    <span>Real security alerts offer multiple resolution options</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-400 mr-2">•</span>
+                    <span>Legitimate warnings contain specific, actionable details</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            
+            <div className="bg-gray-800/50 rounded-md p-4 border border-gray-700 mb-6">
+              <h3 className="font-bold text-purple-400 mb-3">Advanced Security Tips</h3>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <h4 className="font-medium text-white">1. Verify Visual Elements</h4>
+                  <p className="text-gray-400">Sophisticated phishing attempts often contain small visual inconsistencies in logos, colors, or layouts.</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-white">2. Check For Multiple Pressure Tactics</h4>
+                  <p className="text-gray-400">Legitimate security alerts don't combine urgency, threats, and limited-time offers to force quick action.</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-white">3. Unusual Security Language</h4>
+                  <p className="text-gray-400">Real security messages use precise technical language, not vague threats or emotional appeals.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex gap-4">
+            <button
+              onClick={onRestart}
+              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 px-4 rounded-md font-medium transition-colors"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => router.push('/phising-traning')}
+              className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 px-4 rounded-md font-medium transition-colors"
+            >
+              Return to Training Hub
+            </button>
+          </div>
+        </div>
+      </motion.div>
     </div>
-  </div>
-);
+  );
+};
 
 // --- Main Component ---
 const SecurityChallenge = () => {
@@ -735,30 +970,21 @@ const SecurityChallenge = () => {
     attempts: 0,
     timeElapsed: 0,
     stage: "initial",
-    wrongClicks: 0
+    wrongClicks: 0,
   });
 
+  // Set body class for phishing mode cursor styling
   useEffect(() => {
-    // Save progress and return to content hub after completion
-    if (gameState.completed) {
-      const progress = JSON.parse(localStorage.getItem("phishingProgress") || "{}");
-      progress.simulation4 = {
-        completed: true,
-        attempts: gameState.attempts,
-        timeElapsed: gameState.timeElapsed,
-        success: gameState.success,
-        lastAttemptDate: new Date().toISOString(),
-        wrongClicks: gameState.wrongClicks
-      };
-      localStorage.setItem("phishingProgress", JSON.stringify(progress));
-      
-      // Wait 2 seconds before redirecting to show the end screen
-      setTimeout(() => {
-        router.push("/content-hub");
-      }, 2000);
+    // Add the class when component mounts
+    document.body.classList.add('phishing-mode');
+    
+    // Remove the class when component unmounts
+    return () => {
+      document.body.classList.remove('phishing-mode');
     }
-  }, [gameState.completed, router]);
+  }, []);
 
+  // Timer effect to track elapsed time
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (gameState.started && !gameState.completed) {
@@ -769,9 +995,13 @@ const SecurityChallenge = () => {
         }));
       }, 1000);
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [gameState.started, gameState.completed]);
 
+  // Remove automatic redirect after completion
+  
   const handleStart = () => {
     setGameState({
       started: true,
@@ -786,7 +1016,18 @@ const SecurityChallenge = () => {
   };
 
   const handleAction = (isCorrect: boolean) => {
+    // If incorrect action, end game as failure
     if (!isCorrect) {
+      const finalScore = 0; // No score for failure
+      
+      saveToLeaderboard({
+        level: 3,
+        time: gameState.timeElapsed,
+        correctClicks: 0,
+        wrongClicks: gameState.wrongClicks + 1,
+        score: finalScore
+      });
+      
       setGameState((prev) => ({
         ...prev,
         attempts: prev.attempts + 1,
@@ -805,7 +1046,23 @@ const SecurityChallenge = () => {
                        prev.stage === "popup2" ? "popup3" :
                        prev.stage === "popup3" ? "main" : "end";
       
+      // If reached the end, successfully complete the game
       if (nextStage === "end") {
+        const finalTime = prev.timeElapsed;
+        const finalWrongClicks = prev.wrongClicks;
+        
+        // Calculate score
+        const score = calculateScore(finalTime, finalWrongClicks);
+        
+        // Save to leaderboard
+        saveToLeaderboard({
+          level: 3,
+          time: finalTime,
+          correctClicks: 4, // Navigated through all 4 stages correctly
+          wrongClicks: finalWrongClicks,
+          score: score
+        });
+        
         return {
           ...prev,
           completed: true,
@@ -815,6 +1072,7 @@ const SecurityChallenge = () => {
         };
       }
 
+      // Otherwise continue to next stage
       return {
         ...prev,
         stage: nextStage,
@@ -823,6 +1081,67 @@ const SecurityChallenge = () => {
     });
   };
 
+  // Calculate score based on time and wrong clicks
+  const calculateScore = (time: number, wrongClicks: number) => {
+    // Base score of 1500 for level 3 (more difficult)
+    const baseScore = 1500;
+    // Deduct 50 points per wrong click
+    const wrongClickPenalty = wrongClicks * 50;
+    // Deduct 3 points per second taken
+    const timePenalty = Math.floor(time * 3);
+    
+    return Math.max(0, baseScore - wrongClickPenalty - timePenalty);
+  };
+  
+  // Save score to leaderboard (via localStorage)
+  const saveToLeaderboard = (levelData: {
+    level: number;
+    time: number;
+    correctClicks: number;
+    wrongClicks: number;
+    score: number;
+  }) => {
+    try {
+      // Get existing data
+      const existingDataStr = localStorage.getItem('phishing-leaderboard');
+      const existingData = existingDataStr ? JSON.parse(existingDataStr) : { 
+        id: 'user-' + Date.now(),
+        name: 'Player',
+        level1: { completed: false, time: 0, correctClicks: 0, wrongClicks: 0, score: 0 },
+        level2: { completed: false, time: 0, correctClicks: 0, wrongClicks: 0, score: 0 },
+        level3: { completed: false, time: 0, correctClicks: 0, wrongClicks: 0, score: 0 },
+        totalScore: 0,
+        completedAt: new Date().toISOString()
+      };
+      
+      // Update level data
+      if (levelData.level === 3) {
+        existingData.level3 = { 
+          completed: true,
+          time: levelData.time,
+          correctClicks: levelData.correctClicks,
+          wrongClicks: levelData.wrongClicks,
+          score: levelData.score
+        };
+      }
+      
+      // Recalculate total score
+      existingData.totalScore = (existingData.level1?.score || 0) + 
+                               (existingData.level2?.score || 0) + 
+                               (existingData.level3?.score || 0);
+      
+      existingData.completedAt = new Date().toISOString();
+      
+      // Save back to localStorage
+      localStorage.setItem('phishing-leaderboard', JSON.stringify(existingData));
+      
+      console.log('Saved to leaderboard:', existingData);
+    } catch (error) {
+      console.error('Failed to save to leaderboard:', error);
+    }
+  };
+
+  // Render different screens based on game state
   if (!gameState.started) {
     return <StartScreen onStart={handleStart} />;
   }
@@ -831,10 +1150,7 @@ const SecurityChallenge = () => {
     return (
       <EndScreen
         gameState={gameState}
-        onRestart={() => {
-          handleStart();
-          router.push("/content-hub");
-        }}
+        onRestart={handleRestart}
       />
     );
   }
@@ -851,6 +1167,11 @@ const SecurityChallenge = () => {
     default:
       return null;
   }
+};
+
+// Add the missing handleRestart function
+const handleRestart = () => {
+  window.location.href = "/phising-traning";
 };
 
 export default SecurityChallenge;

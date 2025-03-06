@@ -2,6 +2,18 @@
 import { useState } from "react"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import Link from "next/link"
+import { 
+  Shield, 
+  Bot, 
+  BookOpen, 
+  Calendar, 
+  AlertTriangle, 
+  ArrowRight, 
+  MessageSquare, 
+  ExternalLink, 
+  Clock, 
+  PlayCircle 
+} from "lucide-react"
 
 // Define the shape of a resource object
 interface Resource {
@@ -10,11 +22,31 @@ interface Resource {
   description: string;
   link: string;
   image: string;
+  icon: React.ReactNode;
+  buttonText: string;
 }
 
 // Define the props for the ResourceCard component
 interface ResourceCardProps {
   resource: Resource;
+}
+
+// Helper function to get the appropriate icon for each button
+function getButtonIcon(resourceId: number) {
+  switch (resourceId) {
+    case 1: // Cybersecurity Resources
+      return <ExternalLink className="h-4 w-4 text-[#00FF00]" />;
+    case 2: // Cyber-verse Chat Bot
+      return <MessageSquare className="h-4 w-4 text-[#00FF00]" />;
+    case 3: // Phishing Training
+      return <PlayCircle className="h-4 w-4 text-[#00FF00]" />;
+    case 5: // Cyber News
+      return <ArrowRight className="h-4 w-4 text-[#00FF00]" />;
+    case 6: // Events Calendar
+      return <Clock className="h-4 w-4 text-[#00FF00]" />;
+    default:
+      return <ArrowRight className="h-4 w-4 text-[#00FF00]" />;
+  }
 }
 
 function ResourceCard({ resource }: ResourceCardProps) {
@@ -67,14 +99,17 @@ function ResourceCard({ resource }: ResourceCardProps) {
         transition={{ duration: 0.4, ease: "easeOut" }}
       >
         <div>
-          <motion.h2 
-            className="text-2xl font-bold mb-2 text-[#00FF00]"
+          <motion.div 
+            className="flex items-center mb-2 gap-2"
             initial={{ opacity: 0.8, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
           >
-            {resource.title}
-          </motion.h2>
+            {resource.icon}
+            <h2 className="text-2xl font-bold text-[#00FF00]">
+              {resource.title}
+            </h2>
+          </motion.div>
           <motion.p 
             className="text-sm text-gray-400"
             initial={{ opacity: 0, y: 5 }}
@@ -96,9 +131,37 @@ function ResourceCard({ resource }: ResourceCardProps) {
               duration: 0.2, 
               ease: [0.2, 0.65, 0.3, 0.9]
             }}
-            className="mt-4 sm:mt-0 text-[#00FF00] border border-dashed px-4 py-2 rounded hover:bg-[#00FF00]/10 transition-all duration-300"
+            className="mt-4 sm:mt-0 text-[#00FF00] border border-dashed px-4 py-2 rounded hover:bg-[#00FF00]/10 transition-all duration-300 flex items-center justify-center gap-2 min-w-[140px] h-[40px]"
           >
-            Explore
+            <span>{resource.buttonText}</span>
+            <motion.span
+              initial={{ x: 0, opacity: 0.7 }}
+              animate={isHovered ? 
+                { 
+                  x: 5, 
+                  opacity: 1,
+                  scale: [1, 1.2, 1],
+                  filter: "drop-shadow(0 0 2px rgba(0, 255, 0, 0.7))"
+                } : 
+                { 
+                  x: 0, 
+                  opacity: 0.7,
+                  scale: 1,
+                  filter: "none"
+                }
+              }
+              transition={{ 
+                duration: 0.5, 
+                ease: "easeInOut",
+                scale: {
+                  duration: 0.5,
+                  repeat: isHovered ? Infinity : 0,
+                  repeatType: "reverse"
+                }
+              }}
+            >
+              {getButtonIcon(resource.id)}
+            </motion.span>
           </motion.button>
         </Link>
       </motion.div>
@@ -140,29 +203,46 @@ export default function Resources() {
       title: "Cybersecurity Resources",
       description: "Discover and share valuable cybersecurity resources with the community",
       link: "/resources",
-      image: "https://i.imgur.com/hVbtsgQ.jpeg"
+      image: "https://i.imgur.com/hVbtsgQ.jpeg",
+      icon: <Shield className="h-6 w-6 text-[#00FF00]" />,
+      buttonText: "View Resources"
     },
     {
       id: 2,
       title: "Cyber-verse Chat Bot",
       description: "Your guide to the digital realm. Ask chat bot about anything about cybersecurity, hacking, defense, or technical concepts.",
       link: "/ai-chat",
-      image: "https://i.imgur.com/pjCk3R2.jpeg"
+      image: "https://i.imgur.com/pjCk3R2.jpeg",
+      icon: <Bot className="h-6 w-6 text-[#00FF00]" />,
+      buttonText: "Chat Now"
+    },
+    {
+      id: 5,
+      title: "Cyber News",
+      description: "Stay informed with the latest cybersecurity news, breaches, vulnerabilities, and updates from around the world.",
+      link: "/cyber-news",
+      image: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
+      icon: <BookOpen className="h-6 w-6 text-[#00FF00]" />,
+      buttonText: "Read News"
+    },
+    {
+      id: 6,
+      title: "Events Calendar",
+      description: "Explore upcoming cybersecurity conferences, webinars, and training events from SANS and other leading organizations.",
+      link: "/events-calendar",
+      image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
+      icon: <Calendar className="h-6 w-6 text-[#00FF00]" />,
+      buttonText: "View Events"
     },
     {
       id: 3,
-      title: "Resource Three",
-      description: "A brief overview of Resource Three.",
-      link: "/resources/3",
-      image: "/images/resource3.jpg"
+      title: "Phishing Training",
+      description: "Interactive simulation to test and improve your ability to identify and avoid phishing attacks in realistic scenarios.",
+      link: "/phising-traning",
+      image: "https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
+      icon: <AlertTriangle className="h-6 w-6 text-[#00FF00]" />,
+      buttonText: "Start Training"
     },
-    {
-      id: 4,
-      title: "Resource Four",
-      description: "A brief overview of Resource Four.",
-      link: "/resources/4",
-      image: "/images/resource4.jpg"
-    }
   ]
 
   const prefersReducedMotion = useReducedMotion()

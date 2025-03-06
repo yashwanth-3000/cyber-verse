@@ -1,6 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import "../phishing-style.css"; // Import custom phishing CSS
+import Link from "next/link";
 
 // --- Types ---
 interface GameState {
@@ -76,86 +78,96 @@ const buttons = [
 
 const fakeAds = [
   {
-    title: "YOU'VE BEEN SELECTED! 🎉",
-    text: "You're one of 10 users selected for our exclusive beta test! Claim now!",
-    buttonText: "Join Beta Now",
-    type: "prize",
-    icon: "🎁",
-  },
-  {
-    title: "⚠️ ACCOUNT RESTRICTION",
-    text: "Your account has been flagged for unusual activity. Verify now to avoid suspension.",
-    buttonText: "Verify Account",
+    title: "Account Security Verification",
+    text: "We've detected a new login on your account. Please verify your identity to ensure account security.",
+    buttonText: "Verify Now",
     type: "warning",
-    icon: "🛡️",
+    icon: "🔒",
+    secondaryText: "Not now"
   },
   {
-    title: "YOU HAVE A NEW MATCH!",
-    text: "Someone you might know is interested in connecting with you. View their profile now.",
-    buttonText: "View Profile",
-    type: "dating",
-    icon: "❤️",
-  },
-  {
-    title: "STORAGE ALMOST FULL",
-    text: "Your media storage is 90% full. Upgrade now to keep posting photos.",
-    buttonText: "Free Upgrade",
+    title: "Privacy Settings Update Required",
+    text: "We've updated our privacy controls to give you more options. Please review your settings.",
+    buttonText: "Update Settings",
     type: "system",
-    icon: "🔋",
+    icon: "🛡️",
+    secondaryText: "Remind me later"
   },
   {
-    title: "EXCLUSIVE OFFER - PREMIUM ACCESS",
-    text: "Limited time offer! Get Premium features at 75% off for 6 months.",
-    buttonText: "Upgrade Now",
+    title: "New Message Notification",
+    text: "You have 3 unread messages from connections in your network. View your messages now.",
+    buttonText: "View Messages",
+    type: "warning",
+    icon: "✉️",
+    secondaryText: "Mark as read"
+  },
+  {
+    title: "Storage Management",
+    text: "Your account storage is 90% full. Upgrade your plan to ensure you don't lose access to your files.",
+    buttonText: "Manage Storage",
+    type: "system",
+    icon: "📂",
+    secondaryText: "Learn more"
+  },
+  {
+    title: "Premium Account Benefits",
+    text: "Upgrade to Premium for advanced features including enhanced security, priority support, and more customization options.",
+    buttonText: "View Premium Plans",
     type: "sale",
-    icon: "🛍️",
+    icon: "⭐",
+    secondaryText: "No thanks"
   },
 ];
 
 const buttonSpecificAds: { [key: string]: any[] } = {
   "VERIFY YOUR PROFILE": [
     {
-      title: "PROFILE VERIFICATION NEEDED",
-      text: "Your profile requires verification due to recent security updates. Complete now or face restrictions.",
-      buttonText: "Verify Now",
+      title: "Identity Verification",
+      text: "Please verify your identity to secure your account and access all features. This quick process helps us ensure your account safety.",
+      buttonText: "Complete Verification",
       type: "warning",
       icon: "🔒",
+      secondaryText: "Learn more about verification"
     },
   ],
   "Update Privacy Settings": [
     {
-      title: "PRIVACY RISK DETECTED",
-      text: "Your posts may be visible to unwanted audiences. Update privacy settings immediately.",
-      buttonText: "Fix Privacy",
-      type: "warning",
+      title: "Privacy Controls",
+      text: "We've enhanced our privacy controls to give you more ways to protect your information. Please review your current settings.",
+      buttonText: "Review Settings",
+      type: "system",
       icon: "🛡️",
+      secondaryText: "Remind me later"
     },
   ],
   "RESTORE ACCOUNT": [
     {
-      title: "ACCOUNT RECOVERY TOOL",
-      text: "Use our secure recovery tool to regain full access to your account features.",
-      buttonText: "Recover Account",
+      title: "Account Recovery",
+      text: "We've detected you may be having trouble accessing certain features. Complete account recovery to restore full functionality.",
+      buttonText: "Start Recovery",
       type: "system",
       icon: "🔄",
+      secondaryText: "Contact support instead"
     },
   ],
   "Accept New Terms": [
     {
-      title: "TERMS ACCEPTANCE REWARD",
-      text: "Thank you for accepting our updated terms! Claim your special reward now.",
-      buttonText: "Claim Reward",
-      type: "prize",
+      title: "Terms of Service Update",
+      text: "We've updated our Terms of Service to improve clarity and transparency. Please review the changes to continue using our service.",
+      buttonText: "Accept Terms",
+      type: "system",
       icon: "📝",
+      secondaryText: "Review changes first"
     },
   ],
   "Claim Free Premium": [
     {
-      title: "PREMIUM UPGRADE READY",
-      text: "Your account is eligible for a free premium upgrade. Limited time offer!",
-      buttonText: "Get Premium",
+      title: "Premium Account Offer",
+      text: "You're eligible for a free premium upgrade based on your account activity. Unlock enhanced features and improved security.",
+      buttonText: "Activate Premium",
       type: "sale",
       icon: "⭐",
+      secondaryText: "No thanks"
     },
   ],
 };
@@ -203,11 +215,24 @@ const getRelatedAdIndex = (buttonType: string) => {
 };
 
 const getAdForButton = (buttonType: string, adIndex: number) => {
-  const specificAds = buttonSpecificAds[buttonType];
-  if (specificAds && specificAds.length > 0) {
-    return specificAds[0];
+  // First try to get a specific ad for this exact button text
+  if (buttonSpecificAds[buttonType] && buttonSpecificAds[buttonType].length > 0) {
+    return buttonSpecificAds[buttonType][adIndex % buttonSpecificAds[buttonType].length];
   }
-  return fakeAds[adIndex];
+  
+  // If no specific ad found, try matching by button group
+  const buttonGroup = getButtonGroup(buttonType);
+  if (buttonGroup) {
+    // Look for any ads that match this button group
+    for (const [key, ads] of Object.entries(buttonSpecificAds)) {
+      if (getButtonGroup(key) === buttonGroup && ads.length > 0) {
+        return ads[0]; // Use the first ad from a matching group
+      }
+    }
+  }
+  
+  // Fall back to generic fake ads
+  return fakeAds[adIndex % fakeAds.length];
 };
 
 // --- Components ---
@@ -242,107 +267,122 @@ interface EndScreenProps {
   clickedButtonsCount: number;
 }
 
-const EndScreen = ({ gameState, onRestart, pressedGroups, clickedButtonsCount }: EndScreenProps) => (
-  <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-2xl mt-12 text-center">
-    <h1 className="text-3xl font-extrabold mb-4">
-      {gameState.success ? "Challenge Complete! 🎉" : "Challenge Failed"}
-    </h1>
-    <p className="mb-4 text-gray-700">
-      {gameState.success
-        ? `Congratulations! You successfully avoided all phishing attempts in ${gameState.timeElapsed} seconds!`
-        : "You fell for a phishing attempt. Stay vigilant!"}
-    </p>
-    <div className="bg-gray-50 p-4 rounded border mb-4">
-      <h2 className="font-bold mb-2">Challenge Report</h2>
-      <p>Time Taken: {gameState.timeElapsed} seconds</p>
-      <p>Total Attempts: {gameState.attempts}</p>
-      <p>Wrong Clicks: {gameState.wrongClicks}</p>
-      <p>Deceptive Groups Clicked: {pressedGroups.length}</p>
-      <p>Total Interactions: {clickedButtonsCount}</p>
+const EndScreen = ({ gameState, onRestart, pressedGroups, clickedButtonsCount }: EndScreenProps) => {
+  return (
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-900 rounded-lg max-w-2xl w-full shadow-2xl border border-blue-500/20 overflow-hidden">
+        <div className="p-6 bg-gradient-to-r from-blue-900 to-indigo-900">
+          <h2 className="text-2xl font-bold text-white">
+            {gameState.success ? "Phishing Challenge Completed!" : "Phishing Attempt Succeeded"}
+          </h2>
+          <p className="text-blue-200 mt-2">
+            {gameState.success 
+              ? "Great job! You successfully identified the safe navigation." 
+              : "Oops! You clicked on a deceptive element."}
+          </p>
+        </div>
+        
+        <div className="p-6">
+          {/* Conditional message based on success */}
+          {gameState.success ? (
+            <div className="mb-6 p-4 bg-green-900/20 border border-green-900 rounded-md">
+              <p className="text-green-400">
+                You successfully completed the challenge by identifying the legitimate button!
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="mb-6 p-4 bg-red-900/20 border border-red-900 rounded-md">
+                <p className="text-red-400">
+                  You fell for a phishing attempt. Don't worry, this is a safe training environment.
+                </p>
+              </div>
+              {gameState.scammed && <ExplosionAnimation />}
+            </>
+          )}
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <h3 className="font-bold text-lg text-blue-400 mb-2">Your Performance</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Time taken:</span>
+                  <span className="text-white">{gameState.timeElapsed} seconds</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Wrong clicks:</span>
+                  <span className="text-white">{gameState.wrongClicks}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Elements clicked:</span>
+                  <span className="text-white">{clickedButtonsCount}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="font-bold text-lg text-blue-400 mb-2">Areas Explored</h3>
+              {pressedGroups.length > 0 ? (
+                <div className="space-y-3">
+                  {pressedGroups.includes('verify') && (
+                    <div className="bg-red-900/20 p-2 rounded-md border border-red-800">
+                      <p className="text-red-400 font-medium">Verification Area</p>
+                      <p className="text-xs text-gray-400 mt-1">Clicked profile verification or privacy settings buttons</p>
+                    </div>
+                  )}
+                  {pressedGroups.includes('restore') && (
+                    <div className="bg-yellow-900/20 p-2 rounded-md border border-yellow-800">
+                      <p className="text-yellow-400 font-medium">Account Restoration</p>
+                      <p className="text-xs text-gray-400 mt-1">Clicked account recovery buttons</p>
+                    </div>
+                  )}
+                  {pressedGroups.includes('premium') && (
+                    <div className="bg-purple-900/20 p-2 rounded-md border border-purple-800">
+                      <p className="text-purple-400 font-medium">Premium Features</p>
+                      <p className="text-xs text-gray-400 mt-1">Clicked premium offer or terms acceptance buttons</p>
+                    </div>
+                  )}
+                  {pressedGroups.includes('other') && (
+                    <div className="bg-blue-900/20 p-2 rounded-md border border-blue-800">
+                      <p className="text-blue-400 font-medium">Other Interactions</p>
+                      <p className="text-xs text-gray-400 mt-1">Clicked other interactive elements</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-gray-800 p-3 rounded-md">
+                  <p className="text-gray-500 text-sm">No areas explored</p>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="border-t border-gray-800 pt-5">
+            <div className="flex flex-col md:flex-row gap-3 justify-end">
+              <button
+                onClick={onRestart}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
+              >
+                Try Again
+              </button>
+              <Link href="/phising-traning">
+                <button className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-colors">
+                  Back to Training Hub
+                </button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <button
-      onClick={onRestart}
-      className="w-full bg-blue-600 text-white py-3 rounded-lg shadow-lg hover:bg-blue-700 transition-colors"
-    >
-      Try Again
-    </button>
-  </div>
-);
+  );
+};
 
 const ExplosionAnimation = () => (
-  <div className="fixed inset-0 flex justify-center items-center z-[9999] game-over-overlay">
-    <div className="relative w-72 h-72">
-      {Array.from({ length: 50 }).map((_, i) => {
-        const offsetX = Math.random() * 200 - 100;
-        const offsetY = Math.random() * 200 - 100;
-        const delay = Math.random() * 0.5;
-        const size = 5 + Math.random() * 15;
-        const hue = Math.random() * 360;
-        return (
-          <div
-            key={i}
-            className="particle"
-            style={{
-              width: `${size}px`,
-              height: `${size}px`,
-              animationDelay: `${delay}s`,
-              "--offset-x": `${offsetX}px`,
-              "--offset-y": `${offsetY}px`,
-              backgroundColor: `hsl(${hue}, 100%, 50%)`,
-            } as React.CSSProperties}
-          ></div>
-        );
-      })}
-      <div className="game-over-text">ACCOUNT HACKED!</div>
-    </div>
-    <style jsx>{`
-      @keyframes explode {
-        0% {
-          opacity: 1;
-          transform: translate(-50%, -50%) scale(0);
-        }
-        50% {
-          opacity: 1;
-          transform: translate(calc(-50% + var(--offset-x)), calc(-50% + var(--offset-y))) scale(1.5);
-        }
-        100% {
-          opacity: 0;
-          transform: translate(calc(-50% + var(--offset-x)), calc(-50% + var(--offset-y))) scale(0);
-        }
-      }
-      .particle {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        border-radius: 50%;
-        animation: explode 1.5s ease-out forwards;
-      }
-      @keyframes pulseText {
-        0% {
-          transform: translate(-50%, -50%) scale(1);
-        }
-        50% {
-          transform: translate(-50%, -50%) scale(1.2);
-        }
-        100% {
-          transform: translate(-50%, -50%) scale(1);
-        }
-      }
-      .game-over-text {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 1.5rem;
-        color: #ff0000;
-        font-weight: bold;
-        animation: pulseText 1s infinite;
-        z-index: 100;
-      }
-      .game-over-overlay {
-        background: radial-gradient(circle, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.95) 100%);
-      }
-    `}</style>
+  <div className="mb-6 p-4 bg-yellow-900/20 border border-yellow-800 rounded-md">
+    <p className="text-yellow-400 font-medium text-center">
+      In a real scenario, this could have compromised your account security.
+    </p>
   </div>
 );
 
@@ -354,77 +394,86 @@ interface AdPopupProps {
 
 const AdPopup = ({ ad, onClose, onAdClick }: AdPopupProps) => {
   const adContent = getAdForButton(ad.buttonType, ad.adIndex);
-  const positions = ad.position.split(" ");
+  
+  // Closing is always the correct action for a phishing popup
+  const handleCloseClick = () => {
+    // Just close the popup without any wrong click counting
+    onClose();
+  };
+  
+  // Clicking any button inside the popup is always wrong
+  const handleAdButtonClick = () => {
+    // This will count as a wrong click
+    onAdClick(ad.buttonType);
+  };
 
+  // Choose a trustworthy-looking style based on the ad type
+  let headerStyle = "bg-blue-600";
+  let logoIcon = "🔒";
+  
+  if (adContent.type === "warning") {
+    headerStyle = "bg-blue-700"; 
+    logoIcon = "🔔";
+  } else if (adContent.type === "system") {
+    headerStyle = "bg-gray-800";
+    logoIcon = "💻";
+  } else if (adContent.type === "prize") {
+    headerStyle = "bg-green-600";
+    logoIcon = "🏆";
+  } else if (adContent.type === "sale") {
+    headerStyle = "bg-blue-600";
+    logoIcon = "💎";
+  }
+  
   return (
     <div
-      className={`fixed bg-white rounded-lg shadow-xl border overflow-hidden ${positions.join(
-        " "
-      )} z-[70] animate-fadeInBounce`}
-      style={{ width: "320px" }}
+      className={`fixed ${ad.position} z-50 bg-white rounded-lg shadow-xl overflow-hidden w-96 border border-gray-200`}
     >
-      <div
-        className={`p-2 flex justify-between items-center ${
-          adContent.type === "warning"
-            ? "bg-red-600 text-white"
-            : adContent.type === "prize"
-            ? "bg-yellow-400 text-black"
-            : adContent.type === "system"
-            ? "bg-blue-600 text-white"
-            : adContent.type === "sale"
-            ? "bg-purple-600 text-white"
-            : "bg-pink-500 text-white"
-        }`}
-      >
-        <span className="font-bold text-sm">{adContent.title}</span>
+      {/* Professional-looking header */}
+      <div className={`${headerStyle} px-4 py-3 flex justify-between items-center`}>
+        <div className="flex items-center">
+          <span className="mr-2 text-xl">{logoIcon}</span>
+          <h3 className="text-white font-semibold">SocialConnect</h3>
+        </div>
         <button
-          onClick={onClose}
-          className="text-white bg-opacity-30 rounded-full h-6 w-6 flex items-center justify-center hover:bg-opacity-50"
+          onClick={handleCloseClick}
+          className="text-white/80 hover:text-white bg-black/10 hover:bg-black/20 rounded-full h-6 w-6 flex items-center justify-center transition-colors"
+          aria-label="Close popup"
         >
-          ✕
+          ×
         </button>
       </div>
-      <div className="p-4">
-        <div className="flex items-start mb-4">
-          <div className="mr-3 text-2xl">{adContent.icon}</div>
-          <p className="text-sm">{adContent.text}</p>
+      
+      {/* Content area */}
+      <div className="p-5">
+        <div className="mb-3">
+          <h4 className="font-bold text-gray-800 text-lg mb-2">{adContent.title}</h4>
+          <p className="text-gray-600">{adContent.description}</p>
         </div>
-        {adContent.type === "warning" && (
-          <div className="h-4 bg-gray-200 rounded mb-2">
-            <div className="h-full bg-red-500 rounded" style={{ width: "87%" }}></div>
+        
+        <div className="flex flex-col">
+          <button
+            onClick={handleAdButtonClick}
+            className="w-full bg-blue-600 text-white py-2.5 px-4 rounded font-medium hover:bg-blue-700 transition-colors"
+          >
+            {adContent.buttonText}
+          </button>
+          
+          {adContent.secondaryText && (
+            <button
+              onClick={handleCloseClick}
+              className="text-sm text-gray-500 mt-3 hover:text-gray-700 self-center"
+            >
+              {adContent.secondaryText}
+            </button>
+          )}
+          
+          {/* Add footer for extra legitimacy */}
+          <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between">
+            <div className="text-xs text-gray-500">Privacy Protected</div>
+            <div className="text-xs text-gray-500">© SocialConnect Inc.</div>
           </div>
-        )}
-        {adContent.type === "system" && (
-          <div className="flex justify-between text-sm mb-2">
-            <span>Processing...</span>
-            <span>67%</span>
-          </div>
-        )}
-        {adContent.type === "sale" && (
-          <div className="text-center text-sm mb-2">
-            <span className="font-bold">Offer expires in: </span>
-            <span className="text-red-600 font-bold">04:59</span>
-          </div>
-        )}
-        <button
-          onClick={() => {
-            onClose();
-            onAdClick(ad.buttonType);
-          }}
-          className={`w-full py-2 px-4 text-white font-bold rounded ${
-            adContent.type === "warning"
-              ? "bg-red-500 hover:bg-red-600"
-              : adContent.type === "prize"
-              ? "bg-yellow-500 hover:bg-yellow-600"
-              : adContent.type === "system"
-              ? "bg-blue-500 hover:bg-blue-600"
-              : adContent.type === "sale"
-              ? "bg-purple-500 hover:bg-purple-600"
-              : "bg-pink-500 hover:bg-pink-600"
-          } transition-colors`}
-        >
-          {adContent.buttonText}
-        </button>
+        </div>
       </div>
     </div>
   );
@@ -458,9 +507,9 @@ const GameScreen = ({
 
   return (
     <div className="relative w-full min-h-screen bg-gradient-to-br from-gray-100 to-gray-300 overflow-hidden">
-      {/* Only display the timer during gameplay */}
-      <div className="fixed top-4 right-4 bg-white p-2 rounded shadow z-50">
-        <p>Time Left: {TOTAL_TIME - gameState.timeElapsed}s</p>
+      {/* Timer with improved visibility */}
+      <div className="fixed top-4 right-4 bg-white p-3 rounded-md shadow-md z-50 border border-blue-200">
+        <p className="font-bold text-gray-800">Time Left: <span className="text-blue-600">{TOTAL_TIME - gameState.timeElapsed}s</span></p>
       </div>
 
       <header className="bg-blue-600 text-white p-3 flex justify-between items-center sticky top-0 z-10">
@@ -492,31 +541,31 @@ const GameScreen = ({
       <div className="flex flex-col md:flex-row">
         <aside className="w-full md:w-64 bg-gray-50 p-4 border-r">
           <div className="flex items-center space-x-3 mb-6">
-            <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold">
+            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
               U
             </div>
             <div>
-              <p className="font-bold">User123</p>
-              <p className="text-sm text-gray-500">View your profile</p>
+              <p className="font-bold text-gray-800">User123</p>
+              <p className="text-sm text-blue-600 hover:underline cursor-pointer">View your profile</p>
             </div>
           </div>
 
           <ul className="space-y-2">
-            <li className="flex items-center space-x-3 p-2 hover:bg-gray-200 rounded cursor-pointer">
+            <li className="flex items-center space-x-3 p-2 bg-blue-50 rounded cursor-pointer">
               <span className="text-xl">🏠</span>
-              <span>Home</span>
+              <span className="font-medium text-gray-800">Home</span>
             </li>
             <li className="flex items-center space-x-3 p-2 hover:bg-gray-200 rounded cursor-pointer">
               <span className="text-xl">👥</span>
-              <span>Friends</span>
+              <span className="font-medium text-gray-800">Friends</span>
             </li>
             <li className="flex items-center space-x-3 p-2 hover:bg-gray-200 rounded cursor-pointer">
               <span className="text-xl">🎬</span>
-              <span>Videos</span>
+              <span className="font-medium text-gray-800">Videos</span>
             </li>
             <li className="flex items-center space-x-3 p-2 hover:bg-gray-200 rounded cursor-pointer">
               <span className="text-xl">🔔</span>
-              <span>Notifications</span>
+              <span className="font-medium text-gray-800">Notifications</span>
             </li>
             <li className="border-t my-2 pt-2">
               <div className="p-3 bg-blue-50 rounded border border-blue-100 mt-2">
@@ -573,8 +622,8 @@ const GameScreen = ({
               shake ? "animate-shake" : ""
             }`}
           >
-            <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center z-10 p-6">
-              <h2 className="text-2xl font-extrabold mb-4 text-center">
+            <div className="absolute inset-0 bg-white flex flex-col items-center justify-center z-20 p-6 shadow-lg rounded-lg border border-gray-200">
+              <h2 className="text-2xl font-extrabold mb-4 text-center text-gray-800">
                 Welcome to SocialConnect
               </h2>
               <p className="text-gray-600 mb-6 text-center">
@@ -585,22 +634,23 @@ const GameScreen = ({
                   <input
                     type="text"
                     placeholder="Email or Phone Number"
-                    className="w-full p-3 border rounded"
+                    className="w-full p-3 border rounded text-gray-700"
                   />
                 </div>
                 <div className="mb-6">
                   <input
                     type="password"
                     placeholder="Password"
-                    className="w-full p-3 border rounded"
+                    defaultValue="••••••••" 
+                    className="w-full p-3 border rounded text-gray-700"
                   />
                 </div>
                 <p className="text-sm text-gray-700 mb-4">{mainBtn?.description}</p>
                 <button
                   onClick={() => handleButtonClick(true)}
-                  className={`w-full ${mainBtn?.className}`}
+                  className="w-full bg-green-600 text-white font-bold py-3 px-4 rounded shadow hover:bg-green-700 transition-colors relative z-20"
                 >
-                  {mainBtn?.text}
+                  {mainBtn?.text || "Continue to Feed"}
                 </button>
                 <div className="text-center mt-4">
                   <a href="#" className="text-blue-600 hover:underline text-sm">
@@ -636,37 +686,39 @@ const GameScreen = ({
         </main>
 
         <aside className="w-full md:w-80 p-4 bg-gray-50 border-l hidden md:block">
-          <h3 className="font-medium mb-3">Sponsored</h3>
-          <div className="bg-white rounded border p-3 mb-4">
+          <h3 className="font-semibold text-gray-800 mb-3 text-lg">Sponsored</h3>
+          <div className="bg-white rounded-md border border-gray-300 p-4 mb-5 shadow-sm">
             <img
               src="/api/placeholder/320/160"
               alt="Advertisement"
-              className="rounded mb-2 w-full"
+              className="rounded-md mb-3 w-full border border-gray-200"
             />
-            <p className="font-medium text-sm">Best deals on electronics - Shop now!</p>
-            <p className="text-xs text-gray-500">sponsor.example.com</p>
+            <p className="font-medium text-gray-800 text-sm">Best deals on electronics - Shop now!</p>
+            <p className="text-xs text-blue-600 mt-1">sponsor.example.com</p>
           </div>
 
-          <h3 className="font-medium mb-3 mt-6">Trending Topics</h3>
+          <h3 className="font-semibold text-gray-800 mb-3 mt-6 text-lg">Trending Topics</h3>
           <div className="space-y-3">
-            <div className="bg-white rounded p-3 border">
-              <p className="text-xs text-gray-500">#trending</p>
-              <p className="font-medium">Latest Technology News</p>
-              <p className="text-xs text-gray-500">4.2K posts</p>
+            <div className="bg-white rounded-md p-4 border border-gray-300 shadow-sm">
+              <p className="text-xs font-medium text-blue-600">#trending</p>
+              <p className="font-medium text-gray-800 my-1">Latest Technology News</p>
+              <p className="text-xs text-gray-700">4.2K posts</p>
             </div>
-            <div className="bg-white rounded p-3 border">
-              <p className="text-xs text-gray-500">Entertainment</p>
-              <p className="font-medium">New Movie Release Updates</p>
-              <p className="text-xs text-gray-500">2.8K posts</p>
+            <div className="bg-white rounded-md p-4 border border-gray-300 shadow-sm">
+              <p className="text-xs font-medium text-blue-600">Entertainment</p>
+              <p className="font-medium text-gray-800 my-1">New Movie Release Updates</p>
+              <p className="text-xs text-gray-700">2.8K posts</p>
             </div>
           </div>
 
-          <h3 className="font-medium mb-3 mt-6">Contacts</h3>
+          <h3 className="font-semibold text-gray-800 mb-3 mt-6 text-lg">Contacts</h3>
           <div className="space-y-3">
             {["Friend 1", "Friend 2", "Friend 3", "Friend 4"].map((friend, index) => (
-              <div key={index} className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-full bg-gray-300"></div>
-                <span>{friend}</span>
+              <div key={index} className="flex items-center space-x-3 p-2 hover:bg-gray-200 rounded-md transition-colors">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                  {friend[0]}
+                </div>
+                <span className="text-gray-800">{friend}</span>
               </div>
             ))}
           </div>
@@ -686,24 +738,29 @@ const GameScreen = ({
         </button>
       </div>
 
-      <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-lg shadow-lg border z-50 w-80">
+      {/* Account Verification Popup with improved visibility */}
+      <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-lg shadow-xl border border-red-200 z-50 w-96">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-lg">Account Verification</h3>
+          <h3 className="font-bold text-xl text-gray-800">Account Verification</h3>
           <button
-            className="text-gray-500 hover:text-gray-700"
-            onClick={() => handleButtonClick(false, popupBtn?.text || "")}
+            className="text-gray-600 hover:text-gray-800 text-xl"
+            onClick={() => {
+              // Just close the popup without counting as wrong click
+              // We don't pass buttonText here, so it won't be counted
+              handleButtonClick(false, "");
+            }}
           >
             ✕
           </button>
         </div>
-        <p className="text-sm mb-4">
+        <p className="text-base text-gray-700 mb-4 leading-relaxed">
           Your account requires verification due to unusual login activity.
-          {popupBtn?.description}
+          <span className="font-semibold block mt-2 text-gray-800">{popupBtn?.description}</span>
         </p>
         <div className="flex justify-end">
           <button
             onClick={() => handleButtonClick(false, popupBtn?.text || "")}
-            className={popupBtn?.className}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded shadow transition-colors"
           >
             {popupBtn?.text}
           </button>
@@ -759,6 +816,17 @@ const PhishingSimulation = () => {
   const [pressedGroups, setPressedGroups] = useState<string[]>([]);
   const [shake, setShake] = useState(false);
 
+  // Set body class for phishing mode cursor styling
+  useEffect(() => {
+    // Add the class when component mounts
+    document.body.classList.add('phishing-mode');
+    
+    // Remove the class when component unmounts
+    return () => {
+      document.body.classList.remove('phishing-mode');
+    }
+  }, []);
+
   const handleStart = () => {
     setScreen("game");
     setGameState({
@@ -777,92 +845,217 @@ const PhishingSimulation = () => {
   };
 
   const handleRestart = () => {
+    // Just go back to start screen, no redirect
     setScreen("start");
   };
 
+  const goToTrainingHub = () => {
+    router.push("/phising-traning");
+  };
+
+  // Function to completely end the game
+  const completeGame = (isSuccessful: boolean, finalWrongClicks: number) => {
+    // Calculate score
+    const finalTime = gameState.timeElapsed;
+    const score = isSuccessful ? calculateScore(finalTime, finalWrongClicks) : 0;
+    
+    // Save to leaderboard
+    saveToLeaderboard({
+      level: 1,
+      time: finalTime,
+      correctClicks: isSuccessful ? 1 : 0, // Just one correct button needed for success
+      wrongClicks: finalWrongClicks,
+      score: score
+    });
+    
+    // Update game state
+    setGameState((prev) => ({
+      ...prev,
+      completed: true,
+      success: isSuccessful,
+      scammed: !isSuccessful,
+      wrongClicks: finalWrongClicks
+    }));
+    
+    // Clear all popups
+    setActiveAds([]);
+    
+    // Update screen to show end screen
+    setScreen("end");
+  };
+
   const handleButtonClick = (isReal: boolean, buttonText: string = "") => {
+    // Only process clicks if the game is active
+    if (!gameState.started || gameState.completed) return;
+
+    // For empty buttonText with isReal=true, it's the main Continue to Feed button
+    // which is correctly identified as the real button
     if (isReal) {
-      setGameState((prev) => ({ 
-        ...prev, 
-        completed: true, 
-        success: true,
-        attempts: prev.attempts + 1
-      }));
-      setScreen("end");
-    } else {
-      setGameState((prev) => ({ 
-        ...prev, 
-        attempts: prev.attempts + 1,
-        wrongClicks: prev.wrongClicks + 1
-      }));
-      setClickedButtonsCount((prev) => prev + 1);
-
-      // Check for related button groups and stop the game if two in the same group are pressed
-      const group = getButtonGroup(buttonText);
-      if (group) {
-        if (pressedGroups.includes(group)) {
-          setGameState((prev) => ({ 
-            ...prev, 
-            completed: true, 
-            scammed: true,
-            wrongClicks: prev.wrongClicks + 1
-          }));
-          setScreen("end");
-          return;
-        } else {
-          setPressedGroups((prev) => [...prev, group]);
+      console.log("Correct button clicked - completing game successfully");
+      
+      // Track the click for analytics
+      if (buttonText) {
+        const group = getButtonGroup(buttonText);
+        if (group && !pressedGroups.includes(group)) {
+          setPressedGroups(prev => [...prev, group]);
         }
+        setClickedButtonsCount(prev => prev + 1);
       }
+      
+      // Correct button clicked - win the game
+      completeGame(true, gameState.wrongClicks);
+      return;
+    }
 
-      const newAd: Ad = {
-        adIndex: getRelatedAdIndex(buttonText),
-        position: getRandomPosition(),
-        buttonType: buttonText,
+    // Beyond this point, we're handling non-real buttons
+
+    // For empty buttonText with isReal=false, it's likely a close button which is the correct action
+    // We don't count it as a wrong click
+    if (!buttonText) {
+      console.log("Close button clicked - no penalty");
+      return;
+    }
+
+    // Track which button group was pressed for non-real buttons with text
+    const group = getButtonGroup(buttonText);
+    
+    // Only track unique button groups in pressedGroups
+    if (group && !pressedGroups.includes(group)) {
+      setPressedGroups(prev => [...prev, group]);
+      console.log(`Added group ${group} to pressedGroups`);
+    } else if (buttonText && !group) {
+      // If we have button text but couldn't determine a group, track it as 'other'
+      if (!pressedGroups.includes('other')) {
+        setPressedGroups(prev => [...prev, 'other']);
+      }
+    }
+    
+    // Track total clicked buttons with text (real interactions)
+    setClickedButtonsCount(prev => prev + 1);
+
+    // Count as a wrong click - we already verified buttonText is not empty above
+    setGameState((prev) => ({
+      ...prev,
+      wrongClicks: prev.wrongClicks + 1,
+    }));
+    
+    // Visual feedback for wrong click
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
+    
+    // Add a popup specifically for this button
+    // First, try to find a specific ad for this exact button text
+    if (buttonSpecificAds[buttonText] && buttonSpecificAds[buttonText].length > 0) {
+      // We have a specific ad for this button
+      const buttonType = buttonText;
+      const adIndex = 0; // Use the first (and typically only) specific ad
+      const randomPosition = getRandomPosition();
+      
+      // Don't exceed 3 active ads
+      if (activeAds.length < 3) {
+        setActiveAds(prev => [...prev, { adIndex, position: randomPosition, buttonType }]);
+      }
+    } else {
+      // No specific ad, fall back to using button group
+      const buttonGroup = getButtonGroup(buttonText) || "unknown";
+      const adIndex = getRelatedAdIndex(buttonGroup);
+      const randomPosition = getRandomPosition();
+      
+      // Don't exceed 3 active ads
+      if (activeAds.length < 3) {
+        setActiveAds(prev => [...prev, { adIndex, position: randomPosition, buttonType: buttonGroup }]);
+      }
+    }
+    
+    // After 3 wrong clicks, the user loses
+    if (gameState.wrongClicks >= 2) {
+      completeGame(false, gameState.wrongClicks + 1);
+    }
+  };
+
+  // Calculate score based on time and wrong clicks
+  const calculateScore = (time: number, wrongClicks: number) => {
+    // Base score
+    const baseScore = 1000;
+    // Deduct 50 points per wrong click
+    const wrongClickPenalty = wrongClicks * 50;
+    // Deduct 10 points per second taken
+    const timePenalty = Math.floor(time / 5) * 10;
+    
+    return Math.max(0, baseScore - wrongClickPenalty - timePenalty);
+  };
+  
+  // Save score to leaderboard (via localStorage)
+  const saveToLeaderboard = (levelData: {
+    level: number;
+    time: number;
+    correctClicks: number;
+    wrongClicks: number;
+    score: number;
+  }) => {
+    try {
+      // Get existing data
+      const existingDataStr = localStorage.getItem('phishing-leaderboard');
+      const existingData = existingDataStr ? JSON.parse(existingDataStr) : { 
+        id: 'user-' + Date.now(),
+        name: 'Player',
+        level1: { completed: false, time: 0, correctClicks: 0, wrongClicks: 0, score: 0 },
+        level2: { completed: false, time: 0, correctClicks: 0, wrongClicks: 0, score: 0 },
+        level3: { completed: false, time: 0, correctClicks: 0, wrongClicks: 0, score: 0 },
+        totalScore: 0,
+        completedAt: new Date().toISOString()
       };
-      setActiveAds((prev) => [...prev, newAd]);
-
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
+      
+      // Update level data
+      if (levelData.level === 1) {
+        existingData.level1 = { 
+          completed: true,
+          time: levelData.time,
+          correctClicks: levelData.correctClicks,
+          wrongClicks: levelData.wrongClicks,
+          score: levelData.score
+        };
+      }
+      
+      // Recalculate total score
+      existingData.totalScore = (existingData.level1?.score || 0) + 
+                               (existingData.level2?.score || 0) + 
+                               (existingData.level3?.score || 0);
+      
+      existingData.completedAt = new Date().toISOString();
+      
+      // Save back to localStorage
+      localStorage.setItem('phishing-leaderboard', JSON.stringify(existingData));
+      
+      console.log('Saved to leaderboard:', existingData);
+    } catch (error) {
+      console.error('Failed to save to leaderboard:', error);
     }
   };
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (screen === "game") {
+    if (screen === "game" && gameState.started && !gameState.completed) {
       interval = setInterval(() => {
         setGameState((prev) => {
           const newTime = prev.timeElapsed + 1;
           if (newTime >= TOTAL_TIME) {
-            clearInterval(interval);
-            return { ...prev, timeElapsed: newTime, completed: true, scammed: true };
+            // Time's up - complete game as failure
+            completeGame(false, prev.wrongClicks);
+            return { 
+              ...prev, 
+              timeElapsed: newTime, 
+              completed: true, 
+              scammed: true,
+              success: false
+            };
           }
           return { ...prev, timeElapsed: newTime };
         });
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [screen]);
-
-  useEffect(() => {
-    // Save progress and return to content hub after completion
-    if (gameState.completed) {
-      const progress = JSON.parse(localStorage.getItem("phishingProgress") || "{}");
-      progress.simulation2 = {
-        completed: true,
-        attempts: gameState.attempts,
-        timeElapsed: gameState.timeElapsed,
-        success: gameState.success,
-        lastAttemptDate: new Date().toISOString(),
-        wrongClicks: gameState.wrongClicks
-      };
-      localStorage.setItem("phishingProgress", JSON.stringify(progress));
-      
-      // Wait 2 seconds before redirecting to show the end screen
-      setTimeout(() => {
-        router.push("/content-hub");
-      }, 2000);
-    }
-  }, [gameState.completed, router]);
+  }, [screen, gameState.started, gameState.completed]);
 
   return (
     <div>

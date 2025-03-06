@@ -119,11 +119,11 @@ export default function ResourcesPage() {
           <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
             <div className="flex flex-col items-start">
               <Link
-                href="/"
+                href="/what-you-want-to-know"
                 className="inline-flex items-center text-[#2ecc71] hover:text-[#2ecc71]/80 transition-colors"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Home
+                Back to Resources
               </Link>
               <h1 className="text-3xl md:text-4xl font-bold text-[#2ecc71] font-mono tracking-tight mt-2">
                 Cybersecurity Resources

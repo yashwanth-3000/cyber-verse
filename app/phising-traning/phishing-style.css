@@ -1,0 +1,34 @@
+/* Override cursor styles for phishing training */
+body.phishing-mode {
+  cursor: default !important;
+}
+
+body.phishing-mode * {
+  cursor: inherit;
+}
+
+body.phishing-mode a,
+body.phishing-mode button,
+body.phishing-mode [role="button"],
+body.phishing-mode input[type="button"],
+body.phishing-mode input[type="submit"] {
+  cursor: pointer !important;
+}
+
+/* Hide the custom cursor */
+body.phishing-mode .cursor-spotlight {
+  display: none !important;
+}
+
+/* Special cursors for phishing training */
+.cursor-suspicious {
+  cursor: help !important;
+}
+
+.cursor-danger {
+  cursor: not-allowed !important;
+}
+
+.cursor-safe {
+  cursor: pointer !important;
+} 
