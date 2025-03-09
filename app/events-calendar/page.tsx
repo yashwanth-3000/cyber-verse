@@ -56,8 +56,12 @@ export default function EventsCalendarPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [featuredEvent, setFeaturedEvent] = useState<EventItem | null>(null);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [availableLocations, setAvailableLocations] = useState<string[]>([]);
 
   // Calculate current month
   const currentMonthDisplay = MONTHS[selectedMonth];
@@ -74,6 +78,19 @@ export default function EventsCalendarPage() {
         // Set featured event (first premium event or first event)
         const premium = data.find(event => event.isPremium);
         setFeaturedEvent(premium || data[0]);
+        
+        // Extract unique tags and locations
+        const allTags = data.flatMap(event => event.tags);
+        const uniqueTags = [...new Set(allTags)].sort();
+        setAvailableTags(uniqueTags);
+        
+        const allLocations = data.map(event => {
+          // Extract city from location string
+          const locationParts = event.location.split(',');
+          return locationParts[0].trim();
+        });
+        const uniqueLocations = [...new Set(allLocations)].sort();
+        setAvailableLocations(uniqueLocations);
       } catch (error) {
         console.error("Error fetching events:", error);
       } finally {
@@ -105,6 +122,21 @@ export default function EventsCalendarPage() {
     if (selectedTypes.length > 0) {
       filtered = filtered.filter(event => selectedTypes.includes(event.type));
     }
+    
+    // Apply tags filter
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter(event => 
+        event.tags.some(tag => selectedTags.includes(tag))
+      );
+    }
+    
+    // Apply location filter
+    if (selectedLocations.length > 0) {
+      filtered = filtered.filter(event => {
+        const cityPart = event.location.split(',')[0].trim();
+        return selectedLocations.includes(cityPart);
+      });
+    }
 
     // Filter by month and year for calendar view
     if (viewMode === "calendar") {
@@ -115,7 +147,7 @@ export default function EventsCalendarPage() {
     }
 
     setFilteredEvents(filtered);
-  }, [events, searchQuery, selectedTypes, selectedMonth, selectedYear, viewMode]);
+  }, [events, searchQuery, selectedTypes, selectedTags, selectedLocations, selectedMonth, selectedYear, viewMode]);
 
   // Handle month navigation
   const navigateMonth = (direction: "prev" | "next") => {
@@ -142,6 +174,24 @@ export default function EventsCalendarPage() {
       prev.includes(type) 
         ? prev.filter(t => t !== type)
         : [...prev, type]
+    );
+  };
+
+  // Toggle tag selection
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) 
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+    );
+  };
+  
+  // Toggle location selection
+  const toggleLocation = (location: string) => {
+    setSelectedLocations(prev => 
+      prev.includes(location) 
+        ? prev.filter(l => l !== location)
+        : [...prev, location]
     );
   };
 
@@ -298,15 +348,64 @@ export default function EventsCalendarPage() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="bg-gray-900/80 w-full pl-10 pr-4 py-2 rounded-lg text-white border border-gray-800 focus:border-[#00FF00] focus:outline-none focus:ring-1 focus:ring-[#00FF00]"
                   />
+                  
+                  {/* Search tips tooltip */}
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 group">
+                    <div className="text-gray-400 cursor-help">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                      </svg>
+                    </div>
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-3 bg-gray-800 rounded-lg shadow-xl z-10 border border-gray-700 text-xs">
+                      <p className="text-white font-medium mb-1">Search Tips:</p>
+                      <ul className="text-gray-300 list-disc pl-4 space-y-1">
+                        <li>Search by event title, location, or description</li>
+                        <li>Use specific terms like "Workshop" or "SANS"</li>
+                        <li>Combine with filters for best results</li>
+                      </ul>
+                    </div>
+                  </div>
                 </div>
                 
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="inline-flex items-center bg-gray-900/80 px-4 py-2 rounded-lg border border-gray-800 text-gray-300 hover:border-[#00FF00] hover:text-[#00FF00] transition-all"
-                >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filters {selectedTypes.length > 0 && `(${selectedTypes.length})`}
-                </button>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`inline-flex items-center px-4 py-2 rounded-lg border transition-all ${
+                      showFilters 
+                        ? "bg-[#00FF00]/20 text-[#00FF00] border-[#00FF00]/30" 
+                        : "bg-gray-900/80 border-gray-800 text-gray-300 hover:border-[#00FF00] hover:text-[#00FF00]"
+                    }`}
+                  >
+                    <Filter className="h-4 w-4 mr-2" />
+                    Filters
+                    {(selectedTypes.length > 0 || selectedTags.length > 0 || selectedLocations.length > 0) && 
+                      <span className="ml-1.5 flex items-center justify-center bg-[#00FF00] text-black rounded-full h-5 w-5 text-xs font-medium">
+                        {selectedTypes.length + selectedTags.length + selectedLocations.length}
+                      </span>
+                    }
+                  </button>
+                  
+                  <button 
+                    onClick={() => setViewMode("grid")}
+                    className={`p-2 rounded-md ${viewMode === "grid" ? "bg-[#00FF00]/20 text-[#00FF00]" : "bg-gray-800 text-gray-400"}`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="7" height="7"></rect>
+                      <rect x="14" y="3" width="7" height="7"></rect>
+                      <rect x="14" y="14" width="7" height="7"></rect>
+                      <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                  </button>
+                  
+                  <button 
+                    onClick={() => setViewMode("calendar")} 
+                    className={`p-2 rounded-md ${viewMode === "calendar" ? "bg-[#00FF00]/20 text-[#00FF00]" : "bg-gray-800 text-gray-400"}`}
+                  >
+                    <Calendar className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
               
               {/* Filter panel */}
@@ -319,24 +418,86 @@ export default function EventsCalendarPage() {
                     transition={{ duration: 0.3 }}
                     className="overflow-hidden mt-4"
                   >
-                    <div className="p-4 bg-gray-900/50 border border-gray-800 rounded-lg">
-                      <h3 className="text-white font-medium mb-3">Event Type</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {Object.entries(EVENT_TYPES).map(([type, { label, color }]) => (
-                          <button
-                            key={type}
-                            onClick={() => toggleEventType(type)}
-                            className={`flex items-center px-3 py-1.5 rounded-full text-xs ${
-                              selectedTypes.includes(type)
-                                ? `${color.replace('bg-', 'bg-opacity-20 text-')} border border-${color.replace('bg-', '')}`
-                                : 'bg-gray-800 text-gray-400 border border-gray-700'
-                            }`}
-                          >
-                            <span className={`h-2 w-2 rounded-full ${color} mr-1.5`}></span>
-                            {label}
-                          </button>
-                        ))}
+                    <div className="p-4 bg-gray-900/50 border border-gray-800 rounded-lg space-y-4">
+                      {/* Event Type Filter */}
+                      <div>
+                        <h3 className="text-white font-medium mb-3">Event Type</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(EVENT_TYPES).map(([type, { label, color }]) => (
+                            <button
+                              key={type}
+                              onClick={() => toggleEventType(type)}
+                              className={`flex items-center px-3 py-1.5 rounded-full text-xs ${
+                                selectedTypes.includes(type)
+                                  ? `${color.replace('bg-', 'bg-opacity-20 text-')} border border-${color.replace('bg-', '')}`
+                                  : 'bg-gray-800 text-gray-400 border border-gray-700'
+                              }`}
+                            >
+                              <span className={`h-2 w-2 rounded-full ${color} mr-1.5`}></span>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
+                      
+                      {/* Popular Tags Filter */}
+                      <div>
+                        <h3 className="text-white font-medium mb-3">Popular Tags</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {availableTags.slice(0, 10).map((tag) => (
+                            <button
+                              key={tag}
+                              onClick={() => toggleTag(tag)}
+                              className={`flex items-center px-3 py-1.5 rounded-full text-xs ${
+                                selectedTags.includes(tag)
+                                  ? `bg-blue-500/20 text-blue-400 border border-blue-500/50`
+                                  : 'bg-gray-800 text-gray-400 border border-gray-700'
+                              }`}
+                            >
+                              <Tag className="h-3 w-3 mr-1.5" />
+                              {tag}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Locations Filter */}
+                      <div>
+                        <h3 className="text-white font-medium mb-3">Locations</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {availableLocations.slice(0, 10).map((location) => (
+                            <button
+                              key={location}
+                              onClick={() => toggleLocation(location)}
+                              className={`flex items-center px-3 py-1.5 rounded-full text-xs ${
+                                selectedLocations.includes(location)
+                                  ? `bg-green-500/20 text-green-400 border border-green-500/50`
+                                  : 'bg-gray-800 text-gray-400 border border-gray-700'
+                              }`}
+                            >
+                              <MapPin className="h-3 w-3 mr-1.5" />
+                              {location}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Reset Filters */}
+                      {(selectedTypes.length > 0 || selectedTags.length > 0 || selectedLocations.length > 0) && (
+                        <div className="flex justify-end mt-2">
+                          <button
+                            onClick={() => {
+                              setSelectedTypes([]);
+                              setSelectedTags([]);
+                              setSelectedLocations([]);
+                            }}
+                            className="text-xs text-gray-400 hover:text-white flex items-center"
+                          >
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                            Reset Filters
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 )}
@@ -697,137 +858,1210 @@ function getEventsForDay(events: EventItem[], day: { date: Date }) {
 }
 
 // Mock data for events
+// Mock data for 100 SANS training events
 function getMockEventsData(): EventItem[] {
   return [
     {
-      id: "sans-cyber-2025",
+      id: "sans-singapore-april-2025",
+      title: "SANS Singapore April 2025",
+      date: "2025-04-07",
+      endDate: "2025-04-12",
+      location: "Singapore, SG",
+      url: "https://www.sans.org/cyber-security-training-events/singapore-april-2025/",
+      description: "1 Course",
+      type: "training",
+      isPremium: true,
+      tags: ["SANS", "Training", "Singapore"]
+    },
+    {
+      id: "sans-2025",
       title: "SANS 2025",
       date: "2025-04-13",
       endDate: "2025-04-18",
-      location: "Orlando, FL",
-      url: "https://www.sans.org/event",
-      description: "Join SANS for their premier cybersecurity training event featuring over 40 courses across all skill levels and disciplines. Learn from the best instructors in the industry and build practical skills to advance your career.",
-      type: "conference",
+      location: "Orlando, FL, US and Virtual (ET)",
+      url: "https://www.sans.org/cyber-security-training-events/sans-2025/",
+      description: "48 Courses, 2 Cyber Ranges",
+      type: "training",
       isPremium: true,
-      tags: ["training", "networking", "certification", "workshops"]
+      tags: ["SANS", "Training", "Orlando", "Virtual", "Cyber Ranges"]
     },
     {
-      id: "sans-security-west",
-      title: "SANS Security West",
+      id: "sans-autumn-sydney-2025",
+      title: "SANS Autumn Sydney 2025",
       date: "2025-05-05",
       endDate: "2025-05-10",
-      location: "San Diego, CA",
-      url: "https://www.sans.org/security-west",
-      description: "Attend SANS Security West for hands-on training and networking opportunities with industry leaders. This event features multiple tracks covering offensive operations, defensive strategies, and cloud security.",
+      location: "Sydney, NSW, AU and Virtual (AEST)",
+      url: "https://www.sans.org/cyber-security-training-events/autumn-australia-2025/",
+      description: "5 Courses",
       type: "training",
-      isPremium: false,
-      tags: ["training", "certification", "west coast", "cloud security"]
+      isPremium: true,
+      tags: ["SANS", "Training", "Sydney", "Virtual"]
     },
     {
-      id: "sans-amsterdam",
-      title: "SANS Amsterdam",
+      id: "sans-london-may-2025",
+      title: "SANS London May 2025",
+      date: "2025-05-05",
+      endDate: "2025-05-10",
+      location: "London, GB and Virtual (BST)",
+      url: "https://www.sans.org/cyber-security-training-events/london-may-2025/",
+      description: "8 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: true,
+      tags: ["SANS", "Training", "London", "Virtual"]
+    },
+    {
+      id: "sans-security-west-2025",
+      title: "SANS Security West 2025",
+      date: "2025-05-05",
+      endDate: "2025-05-10",
+      location: "San Diego, CA, US and Virtual (PT)",
+      url: "https://www.sans.org/cyber-security-training-events/sans-security-west-2025/",
+      description: "32 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: true,
+      tags: ["SANS", "Training", "San Diego", "Virtual"]
+    },
+    {
+      id: "sans-amsterdam-may-2025",
+      title: "SANS Amsterdam May 2025",
       date: "2025-05-12",
       endDate: "2025-05-24",
-      location: "Amsterdam, Netherlands",
-      url: "https://www.sans.org/amsterdam",
-      description: "SANS returns to Amsterdam for comprehensive cybersecurity training in Europe. This two-week event offers in-depth courses on security essentials, penetration testing, and digital forensics.",
+      location: "Amsterdam, NL and Virtual (CEST)",
+      url: "https://www.sans.org/cyber-security-training-events/amsterdam-may-2025/",
+      description: "17 Courses, 2 Cyber Ranges",
+      type: "training",
+      isPremium: true,
+      tags: ["SANS", "Training", "Amsterdam", "Virtual"]
+    },
+
+    // Additional Training Events and Summits (Events 7-100)
+    {
+      id: "sans-security-east-baltimore-2025",
+      title: "SANS Security East Baltimore 2025",
+      date: "2025-03-03",
+      endDate: "2025-03-08",
+      location: "Baltimore, MD, US and Virtual (ET)",
+      url: "https://www.sans.org/cyber-security-training-events/security-east-2025/",
+      description: "23 Courses, 2 Cyber Ranges",
       type: "training",
       isPremium: false,
-      tags: ["europe", "certification", "forensics", "penetration testing"]
+      tags: ["SANS", "Training", "Baltimore", "Virtual"]
     },
     {
-      id: "new2cyber-summit",
-      title: "SANS New2Cyber Summit",
-      date: "2025-03-13",
-      location: "Online",
-      url: "https://www.sans.org/cyber-summit",
-      description: "Free live online summit for those new to cybersecurity. Learn from top experts as they share critical skills and knowledge to jump start your path to success in cybersecurity.",
-      type: "webinar",
+      id: "sans-london-march-2025",
+      title: "SANS London March 2025",
+      date: "2025-03-03",
+      endDate: "2025-03-08",
+      location: "London, GB and Virtual (GMT)",
+      url: "https://www.sans.org/cyber-security-training-events/london-march-2025/",
+      description: "7 Courses, 1 Cyber Range",
+      type: "training",
       isPremium: false,
-      tags: ["beginners", "career development", "free", "online"]
+      tags: ["SANS", "Training", "London", "Virtual"]
     },
     {
-      id: "sans-cyber-defense-miami",
-      title: "SANS Cyber Defense Miami",
+      id: "sans-secure-japan-2025",
+      title: "SANS Secure Japan 2025",
+      date: "2025-03-03",
+      endDate: "2025-03-15",
+      location: "Tokyo, JP and Virtual (JST)",
+      url: "https://www.sans.org/cyber-security-training-events/secure-japan-2025/",
+      description: "12 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Tokyo", "Japan", "Virtual"]
+    },
+    {
+      id: "sans-secure-singapore-2025",
+      title: "SANS Secure Singapore 2025",
+      date: "2025-03-10",
+      endDate: "2025-03-22",
+      location: "Singapore, SG and Virtual (SGT)",
+      url: "https://www.sans.org/cyber-security-training-events/secure-singapore-2025/",
+      description: "14 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Singapore", "Virtual"]
+    },
+    {
+      id: "sans-secure-korea-2025",
+      title: "SANS Secure Korea 2025",
+      date: "2025-03-10",
+      endDate: "2025-03-22",
+      location: "Seoul, KR",
+      url: "https://www.sans.org/cyber-security-training-events/secure-korea-2025/",
+      description: "3 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Seoul", "Korea"]
+    },
+    {
+      id: "sans-san-antonio-spring-2025",
+      title: "SANS San Antonio Spring 2025",
+      date: "2025-03-17",
+      endDate: "2025-03-22",
+      location: "San Antonio, TX, US and Virtual (CT)",
+      url: "https://www.sans.org/cyber-security-training-events/san-antonio-spring-2025/",
+      description: "7 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "San Antonio", "Virtual"]
+    },
+    {
+      id: "sans-secure-south-asia-2025",
+      title: "SANS Secure South Asia 2025",
+      date: "2025-03-17",
+      endDate: "2025-03-22",
+      location: "Delhi, IN and Virtual (IST)",
+      url: "https://www.sans.org/cyber-security-training-events/secure-south-asia-2025/",
+      description: "4 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Delhi", "South Asia", "Virtual"]
+    },
+    {
+      id: "sans-adelaide-2025",
+      title: "SANS Adelaide 2025",
+      date: "2025-03-17",
+      endDate: "2025-03-22",
+      location: "Adelaide, SA, AU and Virtual (ACDT)",
+      url: "https://www.sans.org/cyber-security-training-events/adelaide-2025/",
+      description: "2 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Adelaide", "Virtual"]
+    },
+    {
+      id: "sans-paris-march-2025",
+      title: "SANS Paris March 2025",
+      date: "2025-03-17",
+      endDate: "2025-03-22",
+      location: "Paris, FR",
+      url: "https://www.sans.org/cyber-security-training-events/paris-march-2025/",
+      description: "5 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Paris"]
+    },
+    {
+      id: "sans-dfir-dallas-2025",
+      title: "SANS DFIR Dallas 2025",
+      date: "2025-03-24",
+      endDate: "2025-03-29",
+      location: "Dallas, TX, US and Virtual (CT)",
+      url: "https://www.sans.org/cyber-security-training-events/dfir-dallas-2025/",
+      description: "7 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Dallas", "Virtual"]
+    },
+    {
+      id: "sans-munich-march-2025",
+      title: "SANS Munich March 2025",
+      date: "2025-03-24",
+      endDate: "2025-03-29",
+      location: "Munich, DE",
+      url: "https://www.sans.org/cyber-security-training-events/munich-march-2025/",
+      description: "4 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Munich"]
+    },
+    {
+      id: "sans-human-risk-europe-online-march-2025",
+      title: "SANS Human Risk Europe Online March 2025",
+      date: "2025-03-26",
+      endDate: "2025-03-28",
+      location: "Virtual (Greenwich Mean Time, NL)",
+      url: "https://www.sans.org/cyber-security-training-events/human-risk-europe-online-march-2025/",
+      description: "1 Course",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Online", "Europe"]
+    },
+    {
+      id: "ai-cybersecurity-summit-2025",
+      title: "AI Cybersecurity Summit 2025",
+      date: "2025-03-31",
+      endDate: "2025-04-07",
+      location: "Denver, CO, US and Virtual (MT)",
+      url: "https://www.sans.org/cyber-security-training-events/ai-summit-2025/",
+      description: "4 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "AI", "Cybersecurity", "Denver", "Virtual"]
+    },
+    {
+      id: "sans-amsterdam-march-2025",
+      title: "SANS Amsterdam March 2025",
+      date: "2025-03-31",
+      endDate: "2025-04-05",
+      location: "Amsterdam, NL and Virtual (CEST)",
+      url: "https://www.sans.org/cyber-security-training-events/amsterdam-march-2025/",
+      description: "8 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Amsterdam", "Virtual"]
+    },
+    {
+      id: "sans-secure-canberra-2025",
+      title: "SANS Secure Canberra 2025",
+      date: "2025-03-31",
+      endDate: "2025-04-05",
+      location: "Canberra, ACT, AU and Virtual (AEDT)",
+      url: "https://www.sans.org/cyber-security-training-events/secure-australia-2025/",
+      description: "5 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Canberra", "Virtual"]
+    },
+    {
+      id: "sans-cyber-security-mountain-mar-2025",
+      title: "SANS Cyber Security Mountain: Mar 2025",
+      date: "2025-03-31",
+      endDate: "2025-04-05",
+      location: "Virtual (US Mountain)",
+      url: "https://www.sans.org/cyber-security-training-events/cyber-security-mtn-mar-2025/",
+      description: "4 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Mountain", "Virtual"]
+    },
+    {
+      id: "sans-sec595-europe-online-april-2025",
+      title: "SANS SEC595 Europe Online April 2025",
+      date: "2025-04-07",
+      endDate: "2025-04-12",
+      location: "Virtual (British Summer Time, NL)",
+      url: "https://www.sans.org/cyber-security-training-events/sec595-europe-online-april-2025/",
+      description: "1 Course",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Europe", "Online"]
+    },
+    {
+      id: "sans-london-april-2025",
+      title: "SANS London April 2025",
+      date: "2025-04-07",
+      endDate: "2025-04-12",
+      location: "London, GB and Virtual (BST)",
+      url: "https://www.sans.org/cyber-security-training-events/london-april-2025/",
+      description: "7 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "London", "Virtual"]
+    },
+    {
+      id: "sans-live-online-europe-april-2025",
+      title: "SANS Live Online Europe April 2025",
+      date: "2025-04-28",
+      endDate: "2025-05-03",
+      location: "Virtual (British Summer Time, NL)",
+      url: "https://www.sans.org/cyber-security-training-events/live-online-europe-april-2025/",
+      description: "5 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Live Online", "Europe", "Virtual"]
+    },
+    {
+      id: "sans-chicago-spring-2025",
+      title: "SANS Chicago Spring 2025",
+      date: "2025-04-28",
+      endDate: "2025-05-03",
+      location: "Chicago, IL, US and Virtual (CT)",
+      url: "https://www.sans.org/cyber-security-training-events/chicago-spring-2025/",
+      description: "9 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Chicago", "Virtual"]
+    },
+    {
+      id: "sans-stay-sharp-april-2025",
+      title: "SANS Stay Sharp: April 2025",
+      date: "2025-04-28",
+      endDate: "2025-05-02",
+      location: "Virtual (US Central)",
+      url: "https://www.sans.org/cyber-security-training-events/stay-sharp-april-2025/",
+      description: "6 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Stay Sharp", "Virtual"]
+    },
+    {
+      id: "sans-cairo-may-2025",
+      title: "SANS Cairo May 2025",
+      date: "2025-05-03",
+      endDate: "2025-05-08",
+      location: "Cairo, EG and Virtual (EEST)",
+      url: "https://www.sans.org/cyber-security-training-events/cairo-may-2025/",
+      description: "2 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Cairo", "Virtual"]
+    },
+    {
+      id: "sans-riyadh-may-2025",
+      title: "SANS Riyadh May 2025",
+      date: "2025-05-10",
+      endDate: "2025-05-22",
+      location: "Riyadh, SA and Virtual (AST)",
+      url: "https://www.sans.org/cyber-security-training-events/riyadh-may-2025/",
+      description: "8 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Riyadh", "Virtual"]
+    },
+    {
+      id: "sans-doha-may-2025",
+      title: "SANS Doha May 2025",
+      date: "2025-05-10",
+      endDate: "2025-05-15",
+      location: "Doha, QA and Virtual (AST)",
+      url: "https://www.sans.org/cyber-security-training-events/doha-may-2025/",
+      description: "4 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Doha", "Virtual"]
+    },
+    {
+      id: "sans-sec530-canberra-2025",
+      title: "SANS SEC530 Canberra 2025",
+      date: "2025-05-12",
+      endDate: "2025-05-17",
+      location: "Canberra, ACT, AU and Virtual (AEST)",
+      url: "https://www.sans.org/cyber-security-training-events/sec530-canberra-2025/",
+      description: "1 Course",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Canberra", "Virtual"]
+    },
+    {
+      id: "sec504-part-time-may-june-2025",
+      title: "SEC504: Part-Time Schedule (ET)",
+      date: "2025-05-13",
+      endDate: "2025-06-12",
+      location: "Virtual (US Eastern)",
+      url: "https://www.sans.org/cyber-security-training-events/sec504-part-time-may-june-2025/",
+      description: "1 Course",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "SEC504", "Part-Time", "Virtual"]
+    },
+    {
+      id: "sec588-part-time-may-june-2025",
+      title: "SEC588: Part-Time Schedule (ET)",
+      date: "2025-05-13",
+      endDate: "2025-06-12",
+      location: "Virtual (US Eastern)",
+      url: "https://www.sans.org/cyber-security-training-events/sec588-part-time-may-june-2025/",
+      description: "1 Course",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "SEC588", "Part-Time", "Virtual"]
+    },
+    {
+      id: "sans-abu-dhabi-may-2025",
+      title: "SANS Abu Dhabi May 2025",
+      date: "2025-05-18",
+      endDate: "2025-05-23",
+      location: "Abu Dhabi, AE and Virtual (GST)",
+      url: "https://www.sans.org/cyber-security-training-events/abu-dhabi-may-2025/",
+      description: "3 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Abu Dhabi", "Virtual"]
+    },
+    {
+      id: "sans-auscert-gold-coast-2025",
+      title: "SANS at AusCERT Gold Coast",
+      date: "2025-05-19",
+      endDate: "2025-05-20",
+      location: "Gold Coast, QLD, AU",
+      url: "https://www.sans.org/cyber-security-training-events/sans-at-auscert-2025/",
+      description: "1 Course",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Gold Coast"]
+    },
+    {
+      id: "sans-security-leadership-nashville-2025",
+      title: "SANS Security Leadership Nashville 2025",
+      date: "2025-05-19",
+      endDate: "2025-05-23",
+      location: "Nashville, TN, US and Virtual (CT)",
+      url: "https://www.sans.org/cyber-security-training-events/security-leadership-nashville-2025/",
+      description: "9 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Nashville", "Virtual"]
+    },
+    {
+      id: "sans-live-online-europe-may-2025",
+      title: "SANS Live Online Europe May 2025",
+      date: "2025-05-19",
+      endDate: "2025-05-23",
+      location: "Virtual (British Summer Time, NL)",
+      url: "https://www.sans.org/cyber-security-training-events/live-online-europe-may-2025/",
+      description: "2 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Live Online", "Europe", "Virtual"]
+    },
+    {
+      id: "sans-philippines-sec504-2025",
+      title: "SANS Philippines SEC504",
+      date: "2025-05-19",
+      endDate: "2025-05-24",
+      location: "Manila, PH",
+      url: "https://www.sans.org/cyber-security-training-events/philippines-sec504-2025/",
+      description: "1 Course",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Philippines", "SEC504"]
+    },
+    {
+      id: "sans-dubai-may-2025",
+      title: "SANS Dubai May 2025",
+      date: "2025-05-25",
+      endDate: "2025-05-30",
+      location: "Dubai, AE and Virtual (GST)",
+      url: "https://www.sans.org/cyber-security-training-events/dubai-may-2025/",
+      description: "3 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Dubai", "Virtual"]
+    },
+    {
+      id: "sans-madrid-june-2025",
+      title: "SANS Madrid June 2025",
+      date: "2025-06-02",
+      endDate: "2025-06-07",
+      location: "Madrid, ES",
+      url: "https://www.sans.org/cyber-security-training-events/madrid-june-2025/",
+      description: "4 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Madrid"]
+    },
+    {
+      id: "sans-zurich-june-2025",
+      title: "SANS Zurich June 2025",
+      date: "2025-06-02",
+      endDate: "2025-06-07",
+      location: "Zurich, CH",
+      url: "https://www.sans.org/cyber-security-training-events/zurich-june-2025/",
+      description: "2 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Zurich"]
+    },
+    {
+      id: "sans-cyber-defense-miami-2025",
+      title: "SANS Cyber Defense Miami 2025",
+      date: "2025-06-02",
+      endDate: "2025-06-07",
+      location: "Coral Gables, FL, US and Virtual (ET)",
+      url: "https://www.sans.org/cyber-security-training-events/cyber-defense-miami-2025/",
+      description: "13 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Miami", "Virtual"]
+    },
+    {
+      id: "sans-baltimore-spring-2025",
+      title: "SANS Baltimore Spring 2025",
+      date: "2025-06-02",
+      endDate: "2025-06-07",
+      location: "Baltimore, MD, US and Virtual (ET)",
+      url: "https://www.sans.org/cyber-security-training-events/baltimore-spring-2025/",
+      description: "15 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Baltimore", "Virtual"]
+    },
+    {
+      id: "sans-offensive-operations-east-2025",
+      title: "SANS Offensive Operations East 2025",
+      date: "2025-06-08",
+      endDate: "2025-06-14",
+      location: "Baltimore, MD, US and Virtual (ET)",
+      url: "https://www.sans.org/cyber-security-training-events/offensive-operations-east-2025/",
+      description: "16 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Baltimore", "Virtual", "Offensive Operations"]
+    },
+    {
+      id: "sans-london-june-2025",
+      title: "SANS London June 2025",
       date: "2025-06-09",
       endDate: "2025-06-14",
-      location: "Miami, FL",
-      url: "https://www.sans.org/cyber-defense-miami",
-      description: "Focus on defensive cybersecurity skills and strategies at SANS Cyber Defense Miami. This specialized event offers courses on security operations, incident handling, and building defensible networks.",
+      location: "London, GB and Virtual (BST)",
+      url: "https://www.sans.org/cyber-security-training-events/london-june-2025/",
+      description: "8 Courses, 1 Cyber Range",
       type: "training",
       isPremium: false,
-      tags: ["defense", "blue team", "incident response", "certification"]
+      tags: ["SANS", "Training", "London", "Virtual"]
     },
     {
-      id: "sans-rocky-mountain",
-      title: "SANS Rocky Mountain",
-      date: "2025-06-23",
-      endDate: "2025-06-28",
-      location: "Denver, CO",
-      url: "https://www.sans.org/rocky-mountain",
-      description: "Experience SANS training in the Rocky Mountains with courses ranging from security essentials to advanced penetration testing and secure DevOps practices.",
+      id: "sans-cyber-defence-south-asia-2025",
+      title: "SANS Cyber Defence South Asia 2025",
+      date: "2025-06-09",
+      endDate: "2025-06-14",
+      location: "Virtual (India Standard Time, IN)",
+      url: "https://www.sans.org/cyber-security-training-events/cyber-defence-south-asia-2025/",
+      description: "4 Courses",
       type: "training",
       isPremium: false,
-      tags: ["devops", "cloud security", "mountain region", "certification"]
+      tags: ["SANS", "Training", "South Asia", "Virtual"]
+    },
+    {
+      id: "ics-security-summit-2025",
+      title: "ICS Security Summit & Training 2025",
+      date: "2025-06-15",
+      endDate: "2025-06-23",
+      location: "Lake Buena Vista, FL, US and Virtual (ET)",
+      url: "https://www.sans.org/cyber-security-training-events/ics-security-summit-2025/",
+      description: "9 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "ICS", "Summit", "Virtual"]
+    },
+    {
+      id: "sans-amsterdam-june-2025",
+      title: "SANS Amsterdam June 2025",
+      date: "2025-06-16",
+      endDate: "2025-06-21",
+      location: "Amsterdam, NL and Virtual (CEST)",
+      url: "https://www.sans.org/cyber-security-training-events/amsterdam-june-2025/",
+      description: "8 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Amsterdam", "Virtual"]
+    },
+    {
+      id: "sans-cyber-defence-japan-2025",
+      title: "SANS Cyber Defence Japan 2025",
+      date: "2025-06-16",
+      endDate: "2025-06-28",
+      location: "Tokyo, JP and Virtual (JST)",
+      url: "https://www.sans.org/cyber-security-training-events/cyber-defence-japan-2025/",
+      description: "9 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Tokyo", "Japan", "Virtual"]
+    },
+    {
+      id: "sans-paris-june-2025",
+      title: "SANS Paris June 2025",
+      date: "2025-06-23",
+      endDate: "2025-06-28",
+      location: "Paris, FR",
+      url: "https://www.sans.org/cyber-security-training-events/paris-june-2025/",
+      description: "7 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Paris"]
+    },
+    {
+      id: "sans-cyber-defence-canberra-2025",
+      title: "SANS Cyber Defence Canberra 2025",
+      date: "2025-06-23",
+      endDate: "2025-07-05",
+      location: "Canberra, ACT, AU and Virtual (AEST)",
+      url: "https://www.sans.org/cyber-security-training-events/cyber-defence-australia-2025/",
+      description: "8 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Canberra", "Virtual"]
+    },
+    {
+      id: "sans-rocky-mountain-2025",
+      title: "SANS Rocky Mountain 2025",
+      date: "2025-06-23",
+      endDate: "2025-06-28",
+      location: "Denver, CO, US and Virtual (MT)",
+      url: "https://www.sans.org/cyber-security-training-events/rocky-mountain-2025/",
+      description: "15 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Denver", "Virtual", "Rocky Mountain"]
+    },
+    {
+      id: "sans-riyadh-june-2025",
+      title: "SANS Riyadh June 2025",
+      date: "2025-06-28",
+      endDate: "2025-07-03",
+      location: "Riyadh, SA and Virtual (AST)",
+      url: "https://www.sans.org/cyber-security-training-events/riyadh-june-2025/",
+      description: "2 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Riyadh", "Virtual"]
+    },
+    {
+      id: "sans-munich-june-2025",
+      title: "SANS Munich June 2025",
+      date: "2025-06-30",
+      endDate: "2025-07-05",
+      location: "Munich, DE",
+      url: "https://www.sans.org/cyber-security-training-events/munich-june-2025/",
+      description: "7 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Munich"]
+    },
+    {
+      id: "sans-cloud-singapore-june-2025",
+      title: "SANS Cloud Singapore June 2025",
+      date: "2025-06-30",
+      endDate: "2025-07-05",
+      location: "Singapore, SG and Virtual (SGT)",
+      url: "https://www.sans.org/cyber-security-training-events/cloud-singapore-june-2025/",
+      description: "10 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Singapore", "Cloud", "Virtual"]
+    },
+    {
+      id: "sans-human-risk-london-july-2025",
+      title: "SANS Human Risk London July 2025",
+      date: "2025-07-07",
+      endDate: "2025-07-09",
+      location: "London, GB",
+      url: "https://www.sans.org/cyber-security-training-events/human-risk-london-july-2025/",
+      description: "1 Course",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "London", "Human Risk"]
+    },
+    {
+      id: "sans-london-july-2025",
+      title: "SANS London July 2025",
+      date: "2025-07-07",
+      endDate: "2025-07-12",
+      location: "London, GB and Virtual (BST)",
+      url: "https://www.sans.org/cyber-security-training-events/london-july-2025/",
+      description: "10 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "London", "Virtual"]
+    },
+    {
+      id: "sans-riyadh-july-2025",
+      title: "SANS Riyadh July 2025",
+      date: "2025-07-12",
+      endDate: "2025-07-17",
+      location: "Riyadh, SA and Virtual (AST)",
+      url: "https://www.sans.org/cyber-security-training-events/riyadh-july-2025/",
+      description: "4 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Riyadh", "Virtual"]
     },
     {
       id: "sansfire-2025",
       title: "SANSFIRE 2025",
       date: "2025-07-14",
       endDate: "2025-07-19",
-      location: "Washington, D.C.",
-      url: "https://www.sans.org/sansfire",
-      description: "SANSFIRE is one of SANS' largest training events, featuring over 50 courses across all cybersecurity domains. This flagship event brings together practitioners, instructors, and vendors for a week of intensive learning and networking.",
-      type: "conference",
-      isPremium: true,
-      tags: ["flagship event", "all levels", "government", "networking"]
-    },
-    {
-      id: "sans-aws-workshop",
-      title: "SANS AWS Security Workshop",
-      date: "2025-04-05",
-      location: "Online",
-      url: "https://www.sans.org/aws-workshop",
-      description: "Learn to build and secure AWS environments in this hands-on workshop. Participants will gain practical skills for protecting cloud infrastructure and implementing security best practices.",
-      type: "workshop",
-      isPremium: false,
-      tags: ["cloud", "aws", "hands-on", "practical"]
-    },
-    {
-      id: "sans-security-leadership",
-      title: "SANS Security Leadership Summit",
-      date: "2025-05-19",
-      endDate: "2025-05-23",
-      location: "Nashville, TN",
-      url: "https://www.sans.org/leadership-summit",
-      description: "Designed for CISOs and security leaders, this summit addresses strategic challenges in cybersecurity leadership. Sessions cover risk management, team building, and communicating security value to executives.",
-      type: "conference",
-      isPremium: false,
-      tags: ["leadership", "executive", "strategic", "management"]
-    },
-    {
-      id: "sans-offensive-ops",
-      title: "SANS Offensive Operations East",
-      date: "2025-06-09",
-      endDate: "2025-06-14",
-      location: "Boston, MA",
-      url: "https://www.sans.org/offensive-ops",
-      description: "Focus on offensive security techniques and red team operations. This specialized event offers advanced courses on penetration testing, exploit development, and adversary emulation.",
+      location: "Washington, DC, US and Virtual (ET)",
+      url: "https://www.sans.org/cyber-security-training-events/sansfire-2025/",
+      description: "50 Courses, 2 Cyber Ranges",
       type: "training",
       isPremium: false,
-      tags: ["red team", "offensive security", "penetration testing", "advanced"]
+      tags: ["SANS", "Training", "Washington DC", "Virtual", "FIRE"]
     },
     {
-      id: "sans-ai-cybersecurity",
-      title: "SANS AI Cybersecurity Summit",
-      date: "2025-03-31",
-      endDate: "2025-04-01",
-      location: "Denver, CO",
-      url: "https://www.sans.org/ai-summit",
-      description: "Learn to leverage AI in your cybersecurity operations with this specialized summit. Sessions cover AI threat detection, machine learning for security, and defending against AI-powered attacks.",
-      type: "webinar",
-      isPremium: true,
-      tags: ["artificial intelligence", "machine learning", "emerging tech"]
+      id: "sans-amsterdam-july-2025",
+      title: "SANS Amsterdam July 2025",
+      date: "2025-07-14",
+      endDate: "2025-07-19",
+      location: "Amsterdam, NL and Virtual (CEST)",
+      url: "https://www.sans.org/cyber-security-training-events/amsterdam-july-2025/",
+      description: "8 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Amsterdam", "Virtual"]
+    },
+    {
+      id: "sans-pen-test-hackfest-europe-2025-amsterdam",
+      title: "SANS Pen Test Hackfest Europe 2025 – Amsterdam",
+      date: "2025-07-21",
+      endDate: "2025-07-26",
+      location: "Amsterdam, NL and Virtual (CEST)",
+      url: "https://www.sans.org/cyber-security-training-events/pen-test-hackfest-europe-2025/",
+      description: "8 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Pen Test", "Amsterdam", "Virtual"]
+    },
+    {
+      id: "sans-anaheim-2025",
+      title: "SANS Anaheim 2025",
+      date: "2025-07-21",
+      endDate: "2025-07-26",
+      location: "Anaheim, CA, US and Virtual (PT)",
+      url: "https://www.sans.org/cyber-security-training-events/anaheim-2025/",
+      description: "8 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Anaheim", "Virtual"]
+    },
+    {
+      id: "dfir-summit-training-2025",
+      title: "DFIR Summit & Training 2025",
+      date: "2025-07-24",
+      endDate: "2025-07-31",
+      location: "Salt Lake City, UT, US and Virtual (MT)",
+      url: "https://www.sans.org/cyber-security-training-events/digital-forensics-summit-2025/",
+      description: "14 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "DFIR", "Summit", "Virtual"]
+    },
+    {
+      id: "sans-huntsville-2025",
+      title: "SANS Huntsville 2025",
+      date: "2025-07-28",
+      endDate: "2025-08-02",
+      location: "Huntsville, AL, US and Virtual (ET)",
+      url: "https://www.sans.org/cyber-security-training-events/huntsville-2025/",
+      description: "6 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Huntsville", "Virtual"]
+    },
+    {
+      id: "sans-human-risk-europe-online-july-2025",
+      title: "SANS Human Risk Europe Online July 2025",
+      date: "2025-07-28",
+      endDate: "2025-07-30",
+      location: "Virtual (British Summer Time, NL)",
+      url: "https://www.sans.org/cyber-security-training-events/human-risk-europe-online-july-2025/",
+      description: "1 Course",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Human Risk", "Europe", "Online"]
+    },
+    {
+      id: "sans-live-online-europe-july-2025",
+      title: "SANS Live Online Europe July 2025",
+      date: "2025-07-28",
+      endDate: "2025-08-02",
+      location: "Virtual (British Summer Time, NL)",
+      url: "https://www.sans.org/cyber-security-training-events/live-online-europe-july-2025/",
+      description: "9 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Live Online", "Europe", "Virtual"]
+    },
+    {
+      id: "sans-san-antonio-2025",
+      title: "SANS San Antonio 2025",
+      date: "2025-08-04",
+      endDate: "2025-08-09",
+      location: "San Antonio, TX, US and Virtual (CT)",
+      url: "https://www.sans.org/cyber-security-training-events/san-antonio-2025/",
+      description: "15 Courses, 1 Cyber Range",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "San Antonio", "Virtual"]
+    },
+    {
+      id: "sans-london-august-2025",
+      title: "SANS London August 2025",
+      date: "2025-08-04",
+      endDate: "2025-08-09",
+      location: "London, GB and Virtual (BST)",
+      url: "https://www.sans.org/cyber-security-training-events/london-august-2025/",
+      description: "7 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "London", "Virtual"]
+    },
+    {
+      id: "sans-security-awareness-summit-training-2025",
+      title: "SANS Security Awareness Summit & Training 2025",
+      date: "2025-08-11",
+      endDate: "2025-08-15",
+      location: "Chicago, IL, US and Virtual (CT)",
+      url: "https://www.sans.org/cyber-security-training-events/security-awareness-summit-2025/",
+      description: "2 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Chicago", "Security Awareness", "Virtual"]
+    },
+    {
+      id: "sans-chicago-2025",
+      title: "SANS Chicago 2025",
+      date: "2025-08-11",
+      endDate: "2025-08-16",
+      location: "Chicago, IL, US and Virtual (CT)",
+      url: "https://www.sans.org/cyber-security-training-events/chicago-2025/",
+      description: "8 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Chicago", "Virtual"]
+    },
+    {
+      id: "sans-boston-2025",
+      title: "SANS Boston 2025",
+      date: "2025-08-11",
+      endDate: "2025-08-16",
+      location: "Boston, MA, US and Virtual (ET)",
+      url: "https://www.sans.org/cyber-security-training-events/boston-2025/",
+      description: "11 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Boston", "Virtual"]
+    },
+    {
+      id: "sans-cyber-defence-singapore-2025",
+      title: "SANS Cyber Defence Singapore 2025",
+      date: "2025-08-18",
+      endDate: "2025-08-30",
+      location: "Singapore, SG and Virtual (SGT)",
+      url: "https://www.sans.org/cyber-security-training-events/sans-cyber-defence-singapore-2025/",
+      description: "7 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Singapore", "Cyber Defence", "Virtual"]
+    },
+    {
+      id: "sans-amsterdam-august-2025",
+      title: "SANS Amsterdam August 2025",
+      date: "2025-08-18",
+      endDate: "2025-08-23",
+      location: "Amsterdam, NL and Virtual (CEST)",
+      url: "https://www.sans.org/cyber-security-training-events/amsterdam-august-2025/",
+      description: "8 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Amsterdam", "Virtual"]
+    },
+    {
+      id: "sans-virginia-beach-2025",
+      title: "SANS Virginia Beach 2025",
+      date: "2025-08-18",
+      endDate: "2025-08-23",
+      location: "Virginia Beach, VA, US and Virtual (ET)",
+      url: "https://www.sans.org/cyber-security-training-events/virginia-beach-2025/",
+      description: "12 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Virginia Beach", "Virtual"]
+    },
+    {
+      id: "sans-melbourne-2025",
+      title: "SANS Melbourne 2025",
+      date: "2025-08-18",
+      endDate: "2025-08-23",
+      location: "Melbourne, VIC, AU and Virtual (AEST)",
+      url: "https://www.sans.org/cyber-security-training-events/melbourne-2025/",
+      description: "4 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Melbourne", "Virtual"]
+    },
+    {
+      id: "sans-august-south-asia-2025",
+      title: "SANS August South Asia 2025",
+      date: "2025-08-18",
+      endDate: "2025-08-23",
+      location: "Virtual (India Standard Time, IN)",
+      url: "https://www.sans.org/cyber-security-training-events/august-south-asia-2025/",
+      description: "3 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "South Asia", "Virtual"]
+    },
+    {
+      id: "sans-riyadh-cyber-leaders-2025",
+      title: "SANS Riyadh Cyber Leaders 2025",
+      date: "2025-08-24",
+      endDate: "2025-08-28",
+      location: "Riyadh, SA and Virtual (AST)",
+      url: "https://www.sans.org/cyber-security-training-events/riyadh-cyber-leaders-2025/",
+      description: "3 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Riyadh", "Cyber Leaders", "Virtual"]
+    },
+    {
+      id: "sans-copenhagen-august-2025",
+      title: "SANS Copenhagen August 2025",
+      date: "2025-08-25",
+      endDate: "2025-08-30",
+      location: "Copenhagen, DK",
+      url: "https://www.sans.org/cyber-security-training-events/copenhagen-august-2025/",
+      description: "5 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Copenhagen"]
+    },
+    {
+      id: "sans-emerging-threats-leadership-response-2025",
+      title: "SANS Emerging Threats: Leadership Response 2025",
+      date: "2025-08-25",
+      endDate: "2025-08-29",
+      location: "Virginia Beach, VA, US and Virtual (ET)",
+      url: "https://www.sans.org/cyber-security-training-events/leadership-response-2025/",
+      description: "10 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Emerging Threats", "Leadership", "Virtual"]
+    },
+    {
+      id: "sans-brussels-september-2025",
+      title: "SANS Brussels September 2025",
+      date: "2025-09-01",
+      endDate: "2025-09-06",
+      location: "Brussels, BE",
+      url: "https://www.sans.org/cyber-security-training-events/brussels-september-2025/",
+      description: "4 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Brussels"]
+    },
+    {
+      id: "sans-tallinn-september-2025",
+      title: "SANS Tallinn September 2025",
+      date: "2025-09-08",
+      endDate: "2025-09-13",
+      location: "Tallinn, EE",
+      url: "https://www.sans.org/cyber-security-training-events/tallinn-september-2025/",
+      description: "3 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Tallinn"]
+    },
+    {
+      id: "sans-stay-sharp-sept-2025",
+      title: "SANS Stay Sharp: Sept 2025",
+      date: "2025-09-08",
+      endDate: "2025-09-10",
+      location: "Virtual (US Eastern)",
+      url: "https://www.sans.org/cyber-security-training-events/stay-sharp-sept-2025/",
+      description: "7 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Stay Sharp", "Virtual"]
+    },
+    {
+      id: "sans-philippines-for508-2025",
+      title: "SANS Philippines FOR508",
+      date: "2025-09-08",
+      endDate: "2025-09-13",
+      location: "Manila, PH",
+      url: "https://www.sans.org/cyber-security-training-events/philippines-for508-2025/",
+      description: "1 Course",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Philippines", "FOR508"]
+    },
+    {
+      id: "sans-london-september-2025",
+      title: "SANS London September 2025",
+      date: "2025-09-08",
+      endDate: "2025-09-13",
+      location: "London, GB and Virtual (BST)",
+      url: "https://www.sans.org/cyber-security-training-events/london-september-2025/",
+      description: "8 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "London", "Virtual"]
+    },
+    {
+      id: "sans-manama-september-2025",
+      title: "SANS Manama September 2025",
+      date: "2025-09-13",
+      endDate: "2025-09-25",
+      location: "Manama, BH and Virtual (AST)",
+      url: "https://www.sans.org/cyber-security-training-events/manama-september-2025/",
+      description: "5 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Manama", "Virtual"]
+    },
+    {
+      id: "sans-doha-september-2025",
+      title: "SANS Doha September 2025",
+      date: "2025-09-13",
+      endDate: "2025-09-18",
+      location: "Doha, QA and Virtual (AST)",
+      url: "https://www.sans.org/cyber-security-training-events/doha-september-2025/",
+      description: "3 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Doha", "Virtual"]
+    },
+    {
+      id: "sans-amsterdam-september-2025",
+      title: "SANS Amsterdam September 2025",
+      date: "2025-09-15",
+      endDate: "2025-09-20",
+      location: "Amsterdam, NL and Virtual (CEST)",
+      url: "https://www.sans.org/cyber-security-training-events/amsterdam-september-2025/",
+      description: "6 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Amsterdam", "Virtual"]
+    },
+    {
+      id: "sans-malaga-september-2025",
+      title: "SANS Malaga September 2025",
+      date: "2025-09-15",
+      endDate: "2025-09-20",
+      location: "Malaga, ES",
+      url: "https://www.sans.org/cyber-security-training-events/malaga-september-2025/",
+      description: "4 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Malaga"]
+    },
+    {
+      id: "sans-human-risk-amsterdam-september-2025",
+      title: "SANS Human Risk Amsterdam September 2025",
+      date: "2025-09-15",
+      endDate: "2025-09-17",
+      location: "Amsterdam, NL",
+      url: "https://www.sans.org/cyber-security-training-events/human-risk-amsterdam-september-2025/",
+      description: "1 Course",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Amsterdam", "Human Risk"]
+    },
+    {
+      id: "sans-network-security-2025",
+      title: "SANS Network Security 2025",
+      date: "2025-09-22",
+      endDate: "2025-09-27",
+      location: "Las Vegas, NV, US and Virtual (PT)",
+      url: "https://www.sans.org/cyber-security-training-events/network-security-2025/",
+      description: "53 Courses, 2 Cyber Ranges",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Network Security", "Las Vegas", "Virtual"]
+    },
+    {
+      id: "sans-rome-september-2025",
+      title: "SANS Rome September 2025",
+      date: "2025-09-22",
+      endDate: "2025-09-27",
+      location: "Rome, IT",
+      url: "https://www.sans.org/cyber-security-training-events/rome-september-2025/",
+      description: "6 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Rome"]
+    },
+    {
+      id: "sans-paris-opera-september-2025",
+      title: "SANS Paris Opera September 2025",
+      date: "2025-09-22",
+      endDate: "2025-09-27",
+      location: "Paris, FR",
+      url: "https://www.sans.org/cyber-security-training-events/paris-opera-september-2025/",
+      description: "5 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Paris", "Opera"]
+    },
+    {
+      id: "sans-istanbul-september-2025",
+      title: "SANS Istanbul September 2025",
+      date: "2025-09-22",
+      endDate: "2025-09-27",
+      location: "Istanbul, TR and Virtual (EEST)",
+      url: "https://www.sans.org/cyber-security-training-events/istanbul-september-2025/",
+      description: "2 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Istanbul", "Virtual"]
+    },
+    {
+      id: "sans-dfir-europe-prague-2025",
+      title: "SANS DFIR Europe Prague 2025",
+      date: "2025-09-28",
+      endDate: "2025-10-04",
+      location: "Prague, CZ and Virtual (CET)",
+      url: "https://www.sans.org/cyber-security-training-events/dfir-europe-prague-2025/",
+      description: "7 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "DFIR", "Prague", "Virtual"]
+    },
+    {
+      id: "sans-dc-metro-fall-2025",
+      title: "SANS DC Metro Fall 2025",
+      date: "2025-09-29",
+      endDate: "2025-10-04",
+      location: "Rockville, MD, US and Virtual (ET)",
+      url: "https://www.sans.org/cyber-security-training-events/dc-metro-fall-2025/",
+      description: "10 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "DC Metro", "Rockville", "Virtual"]
+    },
+    {
+      id: "sans-paris-republique-september-2025",
+      title: "SANS Paris Republique September 2025",
+      date: "2025-09-29",
+      endDate: "2025-10-04",
+      location: "Paris, FR",
+      url: "https://www.sans.org/cyber-security-training-events/paris-republique-september-2025/",
+      description: "7 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Paris", "Republique"]
+    },
+    {
+      id: "sans-cloudsecnext-summit-2025",
+      title: "SANS CloudSecNext Summit & Training 2025",
+      date: "2025-10-02",
+      endDate: "2025-10-09",
+      location: "Denver, CO, US and Virtual (MT)",
+      url: "https://www.sans.org/cyber-security-training-events/cloudsecnext-summit-2025/",
+      description: "10 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "CloudSecNext", "Denver", "Virtual"]
+    },
+    {
+      id: "sans-cyber-safari-2025",
+      title: "SANS Cyber Safari 2025",
+      date: "2025-10-04",
+      endDate: "2025-10-23",
+      location: "Riyadh, SA and Virtual (AST)",
+      url: "https://www.sans.org/cyber-security-training-events/cyber-safari-2025/",
+      description: "10 Courses, 2 Cyber Ranges",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Cyber Safari", "Riyadh", "Virtual"]
+    },
+    {
+      id: "sans-singapore-october-2025",
+      title: "SANS Singapore October 2025",
+      date: "2025-10-06",
+      endDate: "2025-10-11",
+      location: "Singapore, SG and Virtual (SGT)",
+      url: "https://www.sans.org/cyber-security-training-events/october-singapore-2025/",
+      description: "11 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "Singapore", "Virtual"]
+    },
+    {
+      id: "sans-london-october-2025",
+      title: "SANS London October 2025",
+      date: "2025-10-06",
+      endDate: "2025-10-11",
+      location: "London, GB and Virtual (BST)",
+      url: "https://www.sans.org/cyber-security-training-events/london-october-2025/",
+      description: "10 Courses",
+      type: "training",
+      isPremium: false,
+      tags: ["SANS", "Training", "London", "Virtual"]
     }
   ];
 }
