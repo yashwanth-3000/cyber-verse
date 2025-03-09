@@ -47,6 +47,50 @@ const EVENT_TYPES = {
   workshop: { label: "Workshop", color: "bg-orange-500" },
 };
 
+// Helper function to calculate remaining days for an event
+const calculateRemainingDays = (eventDate: string): number | null => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const eventStartDate = new Date(eventDate);
+  eventStartDate.setHours(0, 0, 0, 0);
+  
+  // If the event is in the past, return null
+  if (eventStartDate < today) return null;
+  
+  // Calculate difference in milliseconds
+  const diffTime = eventStartDate.getTime() - today.getTime();
+  // Convert to days
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  return diffDays;
+};
+
+// Check if an event is ongoing
+const isEventOngoing = (startDate: string, endDate?: string): boolean => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const eventStartDate = new Date(startDate);
+  eventStartDate.setHours(0, 0, 0, 0);
+  
+  const eventEndDate = endDate ? new Date(endDate) : eventStartDate;
+  eventEndDate.setHours(23, 59, 59, 999);
+  
+  return today >= eventStartDate && today <= eventEndDate;
+};
+
+// Check if an event is upcoming
+const isEventUpcoming = (startDate: string): boolean => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const eventStartDate = new Date(startDate);
+  eventStartDate.setHours(0, 0, 0, 0);
+  
+  return eventStartDate > today;
+};
+
 export default function EventsCalendarPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<EventItem[]>([]);
@@ -58,6 +102,7 @@ export default function EventsCalendarPage() {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [selectedStatus, setSelectedStatus] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [featuredEvent, setFeaturedEvent] = useState<EventItem | null>(null);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
@@ -73,18 +118,24 @@ export default function EventsCalendarPage() {
       try {
         // Simulate fetching data from SANS
         const data = getMockEventsData();
-        setEvents(data);
+        
+        // Filter to only show ongoing or upcoming events
+        const filteredData = data.filter(event => 
+          isEventOngoing(event.date, event.endDate) || isEventUpcoming(event.date)
+        );
+        
+        setEvents(filteredData);
         
         // Set featured event (first premium event or first event)
-        const premium = data.find(event => event.isPremium);
-        setFeaturedEvent(premium || data[0]);
+        const premium = filteredData.find(event => event.isPremium);
+        setFeaturedEvent(premium || filteredData[0]);
         
         // Extract unique tags and locations
-        const allTags = data.flatMap(event => event.tags);
+        const allTags = filteredData.flatMap(event => event.tags);
         const uniqueTags = [...new Set(allTags)].sort();
         setAvailableTags(uniqueTags);
         
-        const allLocations = data.map(event => {
+        const allLocations = filteredData.map(event => {
           // Extract city from location string
           const locationParts = event.location.split(',');
           return locationParts[0].trim();
@@ -138,6 +189,19 @@ export default function EventsCalendarPage() {
       });
     }
 
+    // Apply status filter
+    if (selectedStatus.length > 0) {
+      filtered = filtered.filter(event => {
+        if (selectedStatus.includes('ongoing') && isEventOngoing(event.date, event.endDate)) {
+          return true;
+        }
+        if (selectedStatus.includes('upcoming') && isEventUpcoming(event.date)) {
+          return true;
+        }
+        return false;
+      });
+    }
+
     // Filter by month and year for calendar view
     if (viewMode === "calendar") {
       filtered = filtered.filter(event => {
@@ -147,7 +211,7 @@ export default function EventsCalendarPage() {
     }
 
     setFilteredEvents(filtered);
-  }, [events, searchQuery, selectedTypes, selectedTags, selectedLocations, selectedMonth, selectedYear, viewMode]);
+  }, [events, searchQuery, selectedTypes, selectedTags, selectedLocations, selectedStatus, selectedMonth, selectedYear, viewMode]);
 
   // Handle month navigation
   const navigateMonth = (direction: "prev" | "next") => {
@@ -195,6 +259,15 @@ export default function EventsCalendarPage() {
     );
   };
 
+  // Toggle status selection
+  const toggleStatus = (status: string) => {
+    setSelectedStatus(prev => 
+      prev.includes(status) 
+        ? prev.filter(s => s !== status)
+        : [...prev, status]
+    );
+  };
+
   // Format date range for display
   const formatDateRange = (startDate: string, endDate?: string) => {
     const start = new Date(startDate);
@@ -224,8 +297,33 @@ export default function EventsCalendarPage() {
       <div className="relative">
         {/* Background effects */}
         <div className="absolute inset-0 overflow-hidden z-0">
-          <div className="absolute w-[500px] h-[500px] top-0 left-1/4 bg-[#00FF00]/5 blur-[150px] rounded-full"></div>
-          <div className="absolute w-[300px] h-[300px] bottom-1/4 right-1/3 bg-blue-500/5 blur-[150px] rounded-full"></div>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ 
+              opacity: 0.5,
+              scale: [1, 1.05, 1],
+            }}
+            transition={{ 
+              duration: 8, 
+              repeat: Infinity, 
+              repeatType: "reverse" 
+            }}
+            className="absolute w-[500px] h-[500px] top-0 left-1/4 bg-[#00FF00]/5 blur-[150px] rounded-full"
+          ></motion.div>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ 
+              opacity: 0.5,
+              scale: [1, 1.2, 1],
+            }}
+            transition={{ 
+              duration: 12, 
+              repeat: Infinity, 
+              repeatType: "reverse",
+              delay: 1
+            }}
+            className="absolute w-[300px] h-[300px] bottom-1/4 right-1/3 bg-blue-500/5 blur-[150px] rounded-full"
+          ></motion.div>
           
           {/* Terminal-inspired background pattern */}
           <div 
@@ -280,6 +378,58 @@ export default function EventsCalendarPage() {
             from, to { border-color: transparent }
             50% { border-color: #00FF00 }
           }
+
+          @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+          }
+
+          @keyframes pulse-glow {
+            0% { box-shadow: 0 0 5px rgba(0, 255, 0, 0.2); }
+            50% { box-shadow: 0 0 20px rgba(0, 255, 0, 0.6); }
+            100% { box-shadow: 0 0 5px rgba(0, 255, 0, 0.2); }
+          }
+          
+          @keyframes cyber-shimmer {
+            0% { 
+              background-position: -300px 0; 
+            }
+            100% { 
+              background-position: 300px 0; 
+            }
+          }
+
+          @keyframes neon-border-pulse {
+            0% { border-color: rgba(0, 255, 0, 0.2); }
+            50% { border-color: rgba(0, 255, 0, 0.8); }
+            100% { border-color: rgba(0, 255, 0, 0.2); }
+          }
+          
+          .float-animation {
+            animation: float 6s ease-in-out infinite;
+          }
+          
+          .pulse-glow {
+            animation: pulse-glow 3s infinite;
+          }
+
+          .cyber-shimmer {
+            background: linear-gradient(
+              to right,
+              rgba(0, 0, 0, 0) 0%,
+              rgba(0, 255, 0, 0.05) 25%,
+              rgba(0, 255, 0, 0.1) 50%,
+              rgba(0, 255, 0, 0.05) 75%,
+              rgba(0, 0, 0, 0) 100%
+            );
+            background-size: 600px 100%;
+            animation: cyber-shimmer 3s linear infinite;
+          }
+
+          .neon-border-pulse {
+            animation: neon-border-pulse 2s infinite;
+          }
         `}</style>
 
         {/* Main content */}
@@ -289,7 +439,16 @@ export default function EventsCalendarPage() {
           <div className="max-w-7xl mx-auto">
             {/* Header */}
             <div className="flex flex-col mb-8">
-              <div className="flex items-center mb-2">
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ 
+                  duration: 0.6, 
+                  type: "spring", 
+                  stiffness: 100 
+                }}
+                className="flex items-center mb-2"
+              >
                 <Link
                   href="/what-you-want-to-know"
                   className="inline-flex items-center text-[#00FF00] hover:text-[#00FF00]/80 transition-colors mr-4"
@@ -298,23 +457,46 @@ export default function EventsCalendarPage() {
                   Back to Resources
                 </Link>
                 <div className="h-px flex-grow bg-gradient-to-r from-[#00FF00]/0 via-[#00FF00]/40 to-[#00FF00]/0"></div>
-              </div>
+              </motion.div>
               
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
+                <motion.div
+                  initial={{ opacity: 0, x: -30 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ 
+                    duration: 0.7, 
+                    type: "spring", 
+                    stiffness: 50 
+                  }}
+                >
                   <div className="text-[#00FF00]/70 text-xs font-mono mb-1">
                     <span className="mr-1">$</span>
                     <span className="typing-animation">display --events --sources=sans.org</span>
                   </div>
-                  <h1 className="text-3xl md:text-5xl font-bold text-[#00FF00] font-mono tracking-tight">
+                  <motion.h1 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                    className="text-3xl md:text-5xl font-bold text-[#00FF00] font-mono tracking-tight"
+                  >
                     Cyber<span className="text-white">Events</span>
-                  </h1>
-                  <p className="text-gray-400 mt-2 font-mono max-w-2xl">
+                  </motion.h1>
+                  <motion.p 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.5, delay: 0.3 }}
+                    className="text-gray-400 mt-2 font-mono max-w-2xl"
+                  >
                     Stay updated with the latest cybersecurity conferences, webinars, and training opportunities from SANS and other leading organizations.
-                  </p>
-                </div>
+                  </motion.p>
+                </motion.div>
                 
-                <div className="flex space-x-3">
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.4, delay: 0.4 }}
+                  className="flex space-x-3"
+                >
                   <button 
                     onClick={() => setViewMode("grid")}
                     className={`p-2 rounded-md ${viewMode === "grid" ? "bg-[#00FF00]/20 text-[#00FF00]" : "bg-gray-800 text-gray-400"}`}
@@ -332,16 +514,22 @@ export default function EventsCalendarPage() {
                   >
                     <Calendar className="h-5 w-5" />
                   </button>
-                </div>
+                </motion.div>
               </div>
             </div>
             
             {/* Search and filters */}
-            <div className="mb-8">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="mb-8"
+            >
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="relative flex-grow">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <input
+                  <motion.input
+                    whileFocus={{ boxShadow: "0 0 0 2px rgba(0, 255, 0, 0.3)" }}
                     type="text"
                     placeholder="Search events..."
                     value={searchQuery}
@@ -358,19 +546,25 @@ export default function EventsCalendarPage() {
                         <line x1="12" y1="17" x2="12.01" y2="17"></line>
                       </svg>
                     </div>
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-3 bg-gray-800 rounded-lg shadow-xl z-10 border border-gray-700 text-xs">
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      whileHover={{ opacity: 1, scale: 1 }}
+                      className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-3 bg-gray-800 rounded-lg shadow-xl z-10 border border-gray-700 text-xs"
+                    >
                       <p className="text-white font-medium mb-1">Search Tips:</p>
                       <ul className="text-gray-300 list-disc pl-4 space-y-1">
                         <li>Search by event title, location, or description</li>
                         <li>Use specific terms like "Workshop" or "SANS"</li>
                         <li>Combine with filters for best results</li>
                       </ul>
-                    </div>
+                    </motion.div>
                   </div>
                 </div>
                 
                 <div className="flex space-x-2">
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => setShowFilters(!showFilters)}
                     className={`inline-flex items-center px-4 py-2 rounded-lg border transition-all ${
                       showFilters 
@@ -380,14 +574,20 @@ export default function EventsCalendarPage() {
                   >
                     <Filter className="h-4 w-4 mr-2" />
                     Filters
-                    {(selectedTypes.length > 0 || selectedTags.length > 0 || selectedLocations.length > 0) && 
-                      <span className="ml-1.5 flex items-center justify-center bg-[#00FF00] text-black rounded-full h-5 w-5 text-xs font-medium">
-                        {selectedTypes.length + selectedTags.length + selectedLocations.length}
-                      </span>
+                    {(selectedTypes.length > 0 || selectedTags.length > 0 || selectedLocations.length > 0 || selectedStatus.length > 0) && 
+                      <motion.span 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="ml-1.5 flex items-center justify-center bg-[#00FF00] text-black rounded-full h-5 w-5 text-xs font-medium"
+                      >
+                        {selectedTypes.length + selectedTags.length + selectedLocations.length + selectedStatus.length}
+                      </motion.span>
                     }
-                  </button>
+                  </motion.button>
                   
-                  <button 
+                  <motion.button 
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => setViewMode("grid")}
                     className={`p-2 rounded-md ${viewMode === "grid" ? "bg-[#00FF00]/20 text-[#00FF00]" : "bg-gray-800 text-gray-400"}`}
                   >
@@ -397,14 +597,16 @@ export default function EventsCalendarPage() {
                       <rect x="14" y="14" width="7" height="7"></rect>
                       <rect x="3" y="14" width="7" height="7"></rect>
                     </svg>
-                  </button>
+                  </motion.button>
                   
-                  <button 
+                  <motion.button 
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => setViewMode("calendar")} 
                     className={`p-2 rounded-md ${viewMode === "calendar" ? "bg-[#00FF00]/20 text-[#00FF00]" : "bg-gray-800 text-gray-400"}`}
                   >
                     <Calendar className="h-5 w-5" />
-                  </button>
+                  </motion.button>
                 </div>
               </div>
               
@@ -419,6 +621,35 @@ export default function EventsCalendarPage() {
                     className="overflow-hidden mt-4"
                   >
                     <div className="p-4 bg-gray-900/50 border border-gray-800 rounded-lg space-y-4">
+                      {/* Event Status Filter */}
+                      <div>
+                        <h3 className="text-white font-medium mb-3">Event Status</h3>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => toggleStatus('ongoing')}
+                            className={`flex items-center px-3 py-1.5 rounded-full text-xs ${
+                              selectedStatus.includes('ongoing')
+                                ? `bg-green-500/20 text-green-400 border border-green-500/50`
+                                : 'bg-gray-800 text-gray-400 border border-gray-700'
+                            }`}
+                          >
+                            <span className="h-2 w-2 rounded-full bg-green-500 mr-1.5 animate-pulse"></span>
+                            Ongoing Events
+                          </button>
+                          <button
+                            onClick={() => toggleStatus('upcoming')}
+                            className={`flex items-center px-3 py-1.5 rounded-full text-xs ${
+                              selectedStatus.includes('upcoming')
+                                ? `bg-blue-500/20 text-blue-400 border border-blue-500/50`
+                                : 'bg-gray-800 text-gray-400 border border-gray-700'
+                            }`}
+                          >
+                            <Clock className="h-3 w-3 mr-1.5" />
+                            Upcoming Events
+                          </button>
+                        </div>
+                      </div>
+
                       {/* Event Type Filter */}
                       <div>
                         <h3 className="text-white font-medium mb-3">Event Type</h3>
@@ -435,27 +666,6 @@ export default function EventsCalendarPage() {
                             >
                               <span className={`h-2 w-2 rounded-full ${color} mr-1.5`}></span>
                               {label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* Popular Tags Filter */}
-                      <div>
-                        <h3 className="text-white font-medium mb-3">Popular Tags</h3>
-                        <div className="flex flex-wrap gap-2">
-                          {availableTags.slice(0, 10).map((tag) => (
-                            <button
-                              key={tag}
-                              onClick={() => toggleTag(tag)}
-                              className={`flex items-center px-3 py-1.5 rounded-full text-xs ${
-                                selectedTags.includes(tag)
-                                  ? `bg-blue-500/20 text-blue-400 border border-blue-500/50`
-                                  : 'bg-gray-800 text-gray-400 border border-gray-700'
-                              }`}
-                            >
-                              <Tag className="h-3 w-3 mr-1.5" />
-                              {tag}
                             </button>
                           ))}
                         </div>
@@ -483,13 +693,14 @@ export default function EventsCalendarPage() {
                       </div>
                       
                       {/* Reset Filters */}
-                      {(selectedTypes.length > 0 || selectedTags.length > 0 || selectedLocations.length > 0) && (
+                      {(selectedTypes.length > 0 || selectedTags.length > 0 || selectedLocations.length > 0 || selectedStatus.length > 0) && (
                         <div className="flex justify-end mt-2">
                           <button
                             onClick={() => {
                               setSelectedTypes([]);
                               setSelectedTags([]);
                               setSelectedLocations([]);
+                              setSelectedStatus([]);
                             }}
                             className="text-xs text-gray-400 hover:text-white flex items-center"
                           >
@@ -502,7 +713,7 @@ export default function EventsCalendarPage() {
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
+            </motion.div>
             
             {/* Calendar mode header */}
             {viewMode === "calendar" && (
@@ -530,11 +741,29 @@ export default function EventsCalendarPage() {
             {/* Featured event (only in grid view) */}
             {viewMode === "grid" && featuredEvent && !isLoading && (
               <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-8 bg-gradient-to-br from-gray-900/80 to-black border-2 border-dashed border-[#00FF00]/60 rounded-xl overflow-hidden shadow-lg shadow-[#00FF00]/5"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6 }}
+                whileHover="hover"
+                variants={{
+                  hover: {
+                    boxShadow: "0 0 30px rgba(0, 255, 0, 0.2)"
+                  }
+                }}
+                className="mb-8 bg-gradient-to-br from-gray-900/80 to-black border-2 border-dashed border-[#00FF00]/60 rounded-xl overflow-hidden shadow-lg shadow-[#00FF00]/5 neon-border-pulse"
               >
-                <div className="p-6 md:p-8 relative">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ 
+                    duration: 0.5,
+                    delay: 0.2
+                  }}
+                  className="p-6 md:p-8 relative overflow-hidden"
+                >
+                  {/* Cyber shimmer effect */}
+                  <div className="absolute inset-0 cyber-shimmer pointer-events-none"></div>
+                  
                   {featuredEvent.isPremium && (
                     <div className="absolute top-4 right-4 bg-amber-500/20 text-amber-400 px-3 py-1 rounded-full text-xs font-medium border border-amber-500/30">
                       Featured Event
@@ -546,6 +775,40 @@ export default function EventsCalendarPage() {
                       <div className="flex items-center mb-4 space-x-2">
                         <div className={`h-2.5 w-2.5 rounded-full ${EVENT_TYPES[featuredEvent.type].color}`}></div>
                         <span className="text-sm text-gray-300">{EVENT_TYPES[featuredEvent.type].label}</span>
+                        
+                        {/* Remaining days indicator */}
+                        {isEventOngoing(featuredEvent.date, featuredEvent.endDate) && (
+                          <motion.span 
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 500,
+                              damping: 15
+                            }}
+                            className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs ml-2 border border-green-500/30"
+                          >
+                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400 mr-1.5 animate-pulse"></span>
+                            Ongoing Event
+                          </motion.span>
+                        )}
+                        {isEventUpcoming(featuredEvent.date) && calculateRemainingDays(featuredEvent.date) !== null && (
+                          <motion.span 
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 500,
+                              damping: 15
+                            }}
+                            className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs ml-2 border border-blue-500/30"
+                          >
+                            <Clock className="inline-block h-3 w-3 mr-1 animate-pulse" />
+                            {calculateRemainingDays(featuredEvent.date) === 0 
+                              ? "Starts Today" 
+                              : `${calculateRemainingDays(featuredEvent.date)} days remaining`}
+                          </motion.span>
+                        )}
                       </div>
                       
                       <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
@@ -591,7 +854,7 @@ export default function EventsCalendarPage() {
                       </a>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               </motion.div>
             )}
             
@@ -633,12 +896,41 @@ export default function EventsCalendarPage() {
                         {filteredEvents.map((event, index) => (
                           <motion.div
                             key={event.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4, delay: index * 0.05 }}
-                            className="bg-gray-900/40 backdrop-blur-sm rounded-lg overflow-hidden border border-gray-800 hover:border-[#00FF00]/50 transition-all group"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ 
+                              duration: 0.3, 
+                              delay: index * 0.05
+                            }}
+                            whileHover={{ 
+                              translateY: -8, 
+                              transition: { 
+                                type: "tween", 
+                                ease: "easeOut", 
+                                duration: 0.2 
+                              }
+                            }}
+                            whileTap={{ scale: 0.98 }}
+                            className="bg-gray-900/40 backdrop-blur-sm rounded-lg overflow-hidden border border-gray-800 group relative"
                           >
-                            <div className="p-5">
+                            {/* Card background shimmer effect */}
+                            <motion.div 
+                              initial={{ opacity: 0 }}
+                              whileHover={{ opacity: 1 }}
+                              className="absolute inset-0 cyber-shimmer pointer-events-none"
+                            ></motion.div>
+                            
+                            {/* Card border highlight effect */}
+                            <motion.div 
+                              initial={{ opacity: 0 }}
+                              whileHover={{ 
+                                opacity: 1,
+                                transition: { delay: 0.05, duration: 0.2 } 
+                              }}
+                              className="absolute inset-0 rounded-lg border border-[#00FF00]/50 pointer-events-none"
+                            ></motion.div>
+                            
+                            <div className="p-5 relative z-10">
                               <div className="flex justify-between items-start mb-3">
                                 <div className={`px-2 py-1 rounded text-xs ${EVENT_TYPES[event.type].color.replace('bg-', 'bg-opacity-20 text-')}`}>
                                   {EVENT_TYPES[event.type].label}
@@ -653,6 +945,43 @@ export default function EventsCalendarPage() {
                               <h3 className="text-lg font-bold text-white mb-2 group-hover:text-[#00FF00] transition-colors">
                                 {event.title}
                               </h3>
+                              
+                              {/* Event status indicator */}
+                              <div className="mb-2">
+                                {isEventOngoing(event.date, event.endDate) && (
+                                  <motion.span 
+                                    initial={{ opacity: 0, x: -15 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ 
+                                      duration: 0.4, 
+                                      type: "spring",
+                                      stiffness: 500
+                                    }}
+                                    className="inline-flex items-center px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs mr-2 border border-green-500/30"
+                                  >
+                                    <span className="h-1.5 w-1.5 rounded-full bg-green-400 mr-1 animate-pulse"></span>
+                                    Ongoing
+                                  </motion.span>
+                                )}
+                                {isEventUpcoming(event.date) && calculateRemainingDays(event.date) !== null && (
+                                  <motion.span 
+                                    initial={{ opacity: 0, x: -15 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ 
+                                      duration: 0.4, 
+                                      delay: 0.1,
+                                      type: "spring",
+                                      stiffness: 500
+                                    }}
+                                    className="inline-flex items-center px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs border border-blue-500/30"
+                                  >
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    {calculateRemainingDays(event.date) === 0 
+                                      ? "Today" 
+                                      : `${calculateRemainingDays(event.date)} days left`}
+                                  </motion.span>
+                                )}
+                              </div>
                               
                               <p className="text-gray-400 text-sm mb-4 line-clamp-3">
                                 {event.description}
@@ -767,23 +1096,39 @@ export default function EventsCalendarPage() {
             )}
             
             {/* Newsletter signup */}
-            <div className="mt-16 p-6 bg-gradient-to-br from-gray-900/60 to-black/60 border border-gray-800 rounded-xl">
+            <motion.div 
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ 
+                duration: 0.8, 
+                delay: 0.5,
+                type: "spring",
+                stiffness: 50
+              }}
+              whileHover={{ y: -5 }}
+              className="mt-16 p-6 bg-gradient-to-br from-gray-900/60 to-black/60 border border-gray-800 rounded-xl float-animation"
+            >
               <div className="max-w-2xl mx-auto text-center">
                 <h3 className="text-xl font-bold text-[#00FF00] mb-2">Never Miss a Cyber Event</h3>
                 <p className="text-gray-400 mb-6">Subscribe to our newsletter to receive updates on the latest cybersecurity events and training opportunities.</p>
                 
                 <div className="flex flex-col sm:flex-row gap-3">
-                  <input 
+                  <motion.input 
+                    whileFocus={{ boxShadow: "0 0 0 2px rgba(0, 255, 0, 0.3)", scale: 1.02 }}
                     type="email" 
                     placeholder="your-email@example.com" 
                     className="flex-grow px-4 py-2 bg-black/50 rounded-lg border border-gray-700 focus:border-[#00FF00] focus:outline-none text-white"
                   />
-                  <button className="bg-[#00FF00] hover:bg-[#00FF00]/90 text-black font-medium px-6 py-2 rounded-lg transition-colors">
+                  <motion.button 
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-[#00FF00] hover:bg-[#00FF00]/90 text-black font-medium px-6 py-2 rounded-lg transition-colors"
+                  >
                     Subscribe
-                  </button>
+                  </motion.button>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </div>

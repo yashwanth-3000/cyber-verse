@@ -22,6 +22,7 @@ export default function Home() {
   const navItems = [
     { name: "CyberVerse", path: "/", id: "home" },
     { name: "Resources", path: "/resources", id: "resources" },
+    { name: "Cyber Labs", path: "/cyber-labs", id: "cyber-labs" },
     { name: "Contact", path: "/contact", id: "contact" }
   ]
 
