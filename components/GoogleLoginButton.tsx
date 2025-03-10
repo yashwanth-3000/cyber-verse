@@ -17,10 +17,13 @@ export function GoogleLoginButton(props: {
     // Get the next URL from props or search params
     const nextParam = props.nextUrl || searchParams.get('next') || "";
     
+    // Use environment variable for the base URL in production, or location.origin in development
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_VERCEL_URL || location.origin;
+    
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${location.origin}/auth/callback?next=${nextParam}`,
+        redirectTo: `${baseUrl}/auth/callback?next=${nextParam}`,
       },
     });
   };

@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseReqResClient } from "./lib/supabase/server-client";
 import { createClient } from "@supabase/supabase-js";
 
@@ -66,7 +66,10 @@ export async function middleware(request: NextRequest) {
 
   const supabase = createSupabaseReqResClient(request, response);
 
-  // Get the user's session
+  // Get the user's session and refresh it
+  const { data } = await supabase.auth.getSession();
+  
+  // Get the user data
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -74,10 +77,15 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // Protected routes that require authentication
-  const protectedRoutes = ["/account", "/dashboard", "/create-challenge", "/resources/add"];
+  const protectedRoutes = [
+    "/account", 
+    "/dashboard", 
+    "/create-challenge",
+    "/resources/add"
+  ];
   const isProtectedRoute = protectedRoutes.some(route => path.startsWith(route));
 
-  // Auth routes that should redirect to home if already logged in
+  // Auth routes where logged-in users shouldn't go
   const authRoutes = ["/login", "/signup"];
   const isAuthRoute = authRoutes.some(route => path.startsWith(route));
 
@@ -118,18 +126,21 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Check for environment variables in development
+  if (process.env.NODE_ENV === 'development') {
+    const localCallback = /\/auth\/callback/.test(path);
+    
+    if (localCallback) {
+      console.log("Auth callback URL detected in development mode:", path);
+    }
+  }
+
   return response;
 }
 
+// Only run the middleware on auth-related routes
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }; 
