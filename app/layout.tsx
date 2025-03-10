@@ -82,8 +82,8 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${poppins.variable} font-sans`}>
       <head>
-        <title>Varti Studio</title>
-        <meta name="description" content="Create habit challenges with friends" />
+        <title>CyberVerse</title>
+        <meta name="description" content="Learn Cybersecurity Through Interactive Challenges" />
       </head>
       <body className={poppins.className}>
         {isLoading && <Loader />}

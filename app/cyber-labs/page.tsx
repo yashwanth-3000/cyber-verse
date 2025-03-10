@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -77,64 +77,6 @@ const CyberLabStyles = () => (
       box-shadow: 0 0 8px rgba(255, 193, 7, 0.3);
     }
 
-    /* Enhanced tab navigation styling with slimmer bar */
-    .sliding-tabs-container {
-      position: relative;
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px dashed rgba(75, 75, 75, 0.5);
-      border-radius: 6px;
-      padding: 4px;
-      overflow: hidden;
-    }
-
-    .sliding-tabs-container::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.2), transparent);
-    }
-
-    .sliding-tab {
-      position: relative;
-      border-radius: 4px;
-      font-weight: 500;
-      padding: 8px 16px;
-      transition: color 0.3s ease;
-      z-index: 10;
-      border: 1px dashed transparent;
-    }
-    
-    .sliding-tab[data-state="active"] {
-      color: #00FF00;
-      text-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
-    }
-    
-    .sliding-tab[data-state="active"] .category-count {
-      background-color: rgba(0, 255, 0, 0.2);
-      color: #00FF00;
-    }
-    
-    .sliding-tab:hover:not([data-state="active"]) {
-      color: rgba(255, 255, 255, 0.9);
-      background-color: rgba(0, 0, 0, 0.3);
-      border-color: rgba(0, 255, 0, 0.2);
-    }
-    
-    /* Updated slim tab highlight */
-    .tab-highlight {
-      position: absolute;
-      bottom: 2px;
-      height: 2px;
-      border-radius: 1px;
-      background: linear-gradient(to right, rgba(0, 255, 0, 0.3), rgba(0, 255, 0, 0.8), rgba(0, 255, 0, 0.3));
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 1;
-      box-shadow: 0 0 6px rgba(0, 255, 0, 0.4);
-    }
-    
     @keyframes glow-pulse {
       0%, 100% {
         box-shadow: 0 0 5px rgba(0, 255, 0, 0.2);
@@ -148,13 +90,13 @@ const CyberLabStyles = () => (
 
 // Lab categories with icons
 const CATEGORIES = [
-  { id: "all", name: "All Labs", icon: <Terminal className="h-4 w-4" />, count: 3 },
-  { id: "Web Security", name: "Web Security", icon: <Shield className="h-4 w-4" />, count: 1 },
-  { id: "Network Defense", name: "Network Defense", icon: <Network className="h-4 w-4" />, count: 1 },
+  { id: "all", name: "All Labs", icon: <Terminal className="h-4 w-4" />, count: 6 },
+  { id: "Web Security", name: "Web Security", icon: <Shield className="h-4 w-4" />, count: 2 },
+  { id: "Network Defense", name: "Network Defense", icon: <Network className="h-4 w-4" />, count: 2 },
   { id: "Cryptography", name: "Cryptography", icon: <Lock className="h-4 w-4" />, count: 1 },
-  { id: "Forensics", name: "Forensics", icon: <FileDigit className="h-4 w-4" />, count: 0 },
+  { id: "Forensics", name: "Forensics", icon: <FileDigit className="h-4 w-4" />, count: 1 },
   { id: "CTF Challenges", name: "CTF Challenges", icon: <Flag className="h-4 w-4" />, count: 1 },
-  { id: "Beginner Friendly", name: "Beginner Friendly", icon: <Sparkles className="h-4 w-4" />, count: 1 }
+  { id: "Beginner Friendly", name: "Beginner Friendly", icon: <Sparkles className="h-4 w-4" />, count: 2 }
 ]
 
 // Labs data
@@ -196,6 +138,26 @@ const LABS = [
     icon: "🔐",
     comingSoon: true
   },
+  {
+    id: "forensic-investigation",
+    title: "Digital Forensics Investigation",
+    description: "Intermediate forensics training focusing on disk imaging, memory analysis, file recovery, and digital evidence examination with industry-standard tools.",
+    difficulty: "Intermediate",
+    categories: ["Forensics"],
+    completionTime: "2-3 hours",
+    icon: "🔍",
+    comingSoon: true
+  },
+  {
+    id: "advanced-penetration-testing",
+    title: "Advanced Penetration Testing",
+    description: "Comprehensive red team training covering advanced exploitation techniques, privilege escalation, lateral movement, and post-exploitation strategies.",
+    difficulty: "Advanced",
+    categories: ["Web Security", "Network Defense"],
+    completionTime: "4-5 hours",
+    icon: "⚔️",
+    comingSoon: true
+  },
 ]
 
 export default function CyberLabs() {
@@ -204,30 +166,10 @@ export default function CyberLabs() {
   const [filteredLabs, setFilteredLabs] = useState(LABS)
   const [mounted, setMounted] = useState(false)
   
-  // Add refs for tab container and active tab measurements
-  const tabsContainerRef = useRef<HTMLDivElement>(null)
-  const activeTabRef = useRef<HTMLButtonElement>(null)
-  const [tabMetrics, setTabMetrics] = useState({ width: 0, offset: 0 })
-  
   // Set mounted state on initial render
   useEffect(() => {
     setMounted(true)
   }, [])
-  
-  // Update tab metrics when active tab changes
-  useEffect(() => {
-    if (mounted && tabsContainerRef.current) {
-      const activeTab = tabsContainerRef.current.querySelector(`[data-value="${activeFilter}"]`) as HTMLElement
-      if (activeTab) {
-        const containerRect = tabsContainerRef.current.getBoundingClientRect()
-        const tabRect = activeTab.getBoundingClientRect()
-        setTabMetrics({
-          width: tabRect.width,
-          offset: tabRect.left - containerRect.left
-        })
-      }
-    }
-  }, [activeFilter, mounted])
   
   // Update filtered labs when filter changes
   useEffect(() => {
@@ -309,28 +251,18 @@ export default function CyberLabs() {
               Lab Categories
             </h2>
             
-            <div className="relative sliding-tabs-container" ref={tabsContainerRef}>
-              {/* This is the slim sliding highlight */}
-              {mounted && (
-                <motion.div 
-                  className="tab-highlight"
-                  animate={{
-                    width: tabMetrics.width * 0.7, // Make the bar 70% of the tab width
-                    x: tabMetrics.offset + (tabMetrics.width * 0.15), // Center the bar under the tab
-                  }}
-                  transition={{ type: "spring", stiffness: 400, damping: 28 }}
-                />
-              )}
-              
-              <div className="flex flex-wrap relative z-10">
+            <div className="bg-black/30 border border-dashed border-gray-700 rounded-md p-2">
+              <div className="flex flex-wrap">
                 {CATEGORIES.map((category) => (
                   <button
                     key={category.id}
                     data-value={category.id === "all" ? "all" : category.name}
-                    data-state={activeFilter === (category.id === "all" ? "all" : category.name) ? "active" : "inactive"}
                     onClick={() => setActiveFilter(category.id === "all" ? "all" : category.name)}
-                    className="sliding-tab flex items-center justify-center gap-2 flex-1"
-                    ref={activeFilter === (category.id === "all" ? "all" : category.name) ? activeTabRef : null}
+                    className={`flex items-center justify-center gap-2 flex-1 p-2 rounded-md transition-colors ${
+                      activeFilter === (category.id === "all" ? "all" : category.name)
+                        ? "bg-[#00FF00]/10 text-[#00FF00] border border-dashed border-[#00FF00]/30"
+                        : "text-gray-300 hover:bg-black/40 hover:text-white"
+                    }`}
                   >
                     {category.icon}
                     <span>{category.name}</span>
