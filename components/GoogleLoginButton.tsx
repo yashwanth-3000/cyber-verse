@@ -3,6 +3,7 @@
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 import { Button } from "@/components/ui/button";
 import { useSearchParams } from "next/navigation";
+import { useCallback } from "react";
 
 export function GoogleLoginButton(props: { 
   nextUrl?: string; 
@@ -13,26 +14,45 @@ export function GoogleLoginButton(props: {
   const supabase = createSupabaseBrowserClient();
   const searchParams = useSearchParams();
   
-  const handleLogin = async () => {
+  const handleLogin = useCallback(async () => {
     // Get the next URL from props or search params
     const nextParam = props.nextUrl || searchParams.get('next') || "";
     
-    // Get the base URL for redirects from environment variables
-    // This will be replaced during build time with the correct values
+    // Get the base URL for redirects - always use the current origin to avoid localhost issues
     const baseUrl = typeof window !== 'undefined' 
       ? window.location.origin 
       : process.env.NEXT_PUBLIC_SITE_URL || '';
     
-    console.log('Using redirect base URL:', baseUrl);
+    // Pre-cache an empty user in localStorage to improve perceived performance
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cybv_user_loading', 'true');
+      
+      // This will be shown momentarily until the real user data loads
+      localStorage.setItem('cybv_user_profile', JSON.stringify({
+        fullName: 'Loading...',
+        avatarUrl: ''
+      }));
+    }
     
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${baseUrl}/auth/callback?next=${nextParam}`,
-        skipBrowserRedirect: false,
-      },
-    });
-  };
+    try {
+      // Start the OAuth process
+      await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${baseUrl}/auth/callback?next=${nextParam}`,
+          queryParams: {
+            access_type: 'offline', // This requests a refresh token
+            prompt: 'consent'       // This forces the consent screen to always show
+          }
+        },
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      // Clean up if there's an error
+      localStorage.removeItem('cybv_user_loading');
+      localStorage.removeItem('cybv_user_profile');
+    }
+  }, [props.nextUrl, searchParams, supabase.auth]);
 
   // Different button styles based on variant
   if (props.variant === 'minimal') {

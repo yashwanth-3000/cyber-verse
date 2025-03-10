@@ -1,17 +1,14 @@
 "use client";
 
-import { useSession } from "@/lib/supabase/use-session";
-import { GoogleLoginButton } from "@/components/GoogleLoginButton";
-import UserAvatar from "./UserAvatar";
+import { UserSession } from "@/components/UserSession";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/providers/auth-provider";
 
 export default function AuthButtons({ variant = "default" }: { variant?: "default" | "minimal" }) {
-  const { session, loading } = useSession();
-  const router = useRouter();
+  const { isLoading } = useAuth();
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex space-x-4 items-center">
         <div className="w-24 h-8 bg-black/20 backdrop-blur-sm rounded-full animate-pulse"></div>
@@ -19,28 +16,15 @@ export default function AuthButtons({ variant = "default" }: { variant?: "defaul
     );
   }
 
-  if (session) {
-    return (
-      <Button 
-        onClick={() => router.push('/account')}
-        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-green-400 transition-all duration-300 ease-out rounded-full bg-black/20 backdrop-blur-sm border border-gray-800 hover:border-green-900"
-      >
-        <UserAvatar showName={true} />
-      </Button>
-    );
-  }
-
-  // For the home page, use the minimal variant
+  // Always use the UserSession component which handles login/logout states internally
   if (variant === "minimal") {
-    return (
-      <GoogleLoginButton variant="minimal" />
-    );
+    return <UserSession />;
   }
 
   // Default variant for other pages
   return (
-    <div className="flex space-x-4">
-      <GoogleLoginButton />
+    <div className="flex space-x-4 items-center">
+      <UserSession />
       <Button 
         asChild
         className="relative px-4 py-2 text-sm text-gray-400 hover:text-green-400 transition-all duration-300 ease-out rounded-full bg-black/20 backdrop-blur-sm border border-gray-800 hover:border-green-900"

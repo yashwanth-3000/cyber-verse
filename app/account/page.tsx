@@ -1,32 +1,32 @@
 "use client";
 
-import { useSession } from "@/lib/supabase/use-session";
+import { useAuth } from "@/lib/providers/auth-provider";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowLeft, LogOut } from "lucide-react";
-import LogoutButton from "@/components/LogoutButton";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function AccountPage() {
-  const { session, loading } = useSession();
+  const { user, isLoading, signOut } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const supabase = createSupabaseBrowserClient();
+  const [userName, setUserName] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (user) {
+      setUserName(user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User');
+      setEmail(user.email || '');
+      setAvatarUrl(user.user_metadata?.avatar_url || '');
+    }
+  }, [user]);
 
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true);
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error("Error signing out:", error.message);
-        return;
-      }
-      
-      // Force a hard refresh to clear any cached state
-      window.location.href = "/";
+      await signOut();
     } catch (err) {
       console.error("Unexpected error during logout:", err);
     } finally {
@@ -34,7 +34,7 @@ export default function AccountPage() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="relative min-h-screen bg-black overflow-hidden flex items-center justify-center">
         <div className="w-16 h-16 border-t-4 border-[#00FF00] border-solid rounded-full animate-spin"></div>
@@ -42,7 +42,7 @@ export default function AccountPage() {
     );
   }
 
-  if (!session) {
+  if (!user) {
     return (
       <div className="relative min-h-screen bg-black overflow-hidden flex items-center justify-center">
         <div className="text-white text-center">
@@ -57,11 +57,6 @@ export default function AccountPage() {
       </div>
     );
   }
-
-  const user = session.user;
-  const avatarUrl = user.user_metadata?.avatar_url;
-  const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
-  const email = user.email;
 
   return (
     <div className="relative min-h-screen bg-black overflow-hidden">
