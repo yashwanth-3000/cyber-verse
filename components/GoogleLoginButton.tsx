@@ -17,13 +17,19 @@ export function GoogleLoginButton(props: {
     // Get the next URL from props or search params
     const nextParam = props.nextUrl || searchParams.get('next') || "";
     
-    // Use environment variable for the base URL in production, or location.origin in development
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_VERCEL_URL || location.origin;
+    // Get the base URL for redirects from environment variables
+    // This will be replaced during build time with the correct values
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : process.env.NEXT_PUBLIC_SITE_URL || '';
+    
+    console.log('Using redirect base URL:', baseUrl);
     
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: `${baseUrl}/auth/callback?next=${nextParam}`,
+        skipBrowserRedirect: false,
       },
     });
   };
