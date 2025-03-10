@@ -16,8 +16,14 @@ import {
   Trophy, 
   CheckCircle2, 
   GitBranch, 
-  Lock
+  Lock,
+  Clock,
+  CheckCircle
 } from "lucide-react"
+import { LabProgress } from "@/components/LabProgress"
+import { LabStepProgress } from "@/components/LabStepProgress"
+import { ProgressClient } from "@/lib/services/progress-service"
+import { useAuth } from "@/lib/providers/auth-provider"
 
 // Sample lab data (to be replaced with real data from your database)
 const LABS = [
@@ -277,272 +283,391 @@ Content-Security-Policy: default-src 'self'; script-src 'self' https://trusted-c
   // Other lab definitions would follow here
 ]
 
-// Simulate flag/solution validation
+// Helper function to validate solutions
 const validateSolution = (labId: string, input: string) => {
-  // In a real application, this would check against actual solutions
-  // stored securely in your backend
-  const solutions: { [key: string]: string } = {
-    "web-xss-lab": "<script>alert('XSS Successful!')</script>",
-    "network-packet-analysis": "suspicious_traffic.pcap"
-  }
+  // Basic solution validation - in a real app, this would be more sophisticated
+  console.log(`Validating solution for lab ${labId}: ${input}`);
   
-  return input.includes(solutions[labId])
-}
+  // Mock validation logic - replace with real validation
+  const correctAnswers: {[key: string]: string[]} = {
+    'xss-playground': ['<script>alert("XSS")</script>', '<img src="x" onerror="alert(\'XSS\')">', '<script>console.log("XSS")</script>'],
+    'sql-injection': ['OR 1=1', '\' OR \'1\'=\'1', '1\' OR \'1\'=\'1'],
+    'jwt-vulnerabilities': ['none', 'eyJhbGciOiJub25lIn0', 'alg:none'],
+  };
+  
+  const isCorrect = correctAnswers[labId]?.some(answer => 
+    input.toLowerCase().includes(answer.toLowerCase())
+  );
+  
+  return {
+    success: isCorrect,
+    message: isCorrect 
+      ? 'Correct! You\'ve successfully completed this challenge.'
+      : 'That\'s not quite right. Try again with a different approach.'
+  };
+};
 
 export default function LabPage() {
+  const params = useParams<{ labId: string }>()
   const router = useRouter()
-  const params = useParams()
-  const labId = params.labId as string
-  
+  const { user } = useAuth()
+  const [activeTab, setActiveTab] = useState("intro")
   const [lab, setLab] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [currentStep, setCurrentStep] = useState(0)
-  const [userInput, setUserInput] = useState("")
-  const [success, setSuccess] = useState(false)
-  const [attemptsMade, setAttemptsMade] = useState(0)
+  const [solution, setSolution] = useState("")
+  const [validationResult, setValidationResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [completedSteps, setCompletedSteps] = useState<string[]>([])
   
-  // Simulating lab data fetch
   useEffect(() => {
-    const findLab = LABS.find(l => l.id === labId)
-    if (findLab) {
-      setLab(findLab)
+    // Find the lab data based on the URL parameter
+    const currentLab = LABS.find(l => l.id === params.labId)
+    if (currentLab) {
+      setLab(currentLab)
     } else {
-      // Lab not found
-      router.push('/cyber-labs')
+      router.push("/cyber-labs") // Redirect if lab not found
     }
-    setLoading(false)
-  }, [labId])
+    
+    // Load completed steps from local storage or API
+    const loadCompletedSteps = async () => {
+      if (!params.labId || !user) return;
+      
+      try {
+        const stepProgress = await ProgressClient.getLabStepProgress(params.labId);
+        const completed = stepProgress
+          .filter(step => step.is_completed)
+          .map(step => step.step_id);
+        
+        setCompletedSteps(completed);
+      } catch (error) {
+        console.error('Error loading step progress:', error);
+      }
+    };
+    
+    loadCompletedSteps();
+  }, [params.labId, router, user]);
+  
+  const handleStepComplete = async (stepId: string) => {
+    // Don't mark as completed if already completed
+    if (completedSteps.includes(stepId)) return;
+    
+    // Add to completed steps locally
+    setCompletedSteps(prev => [...prev, stepId]);
+    
+    // Update step progress in database if user is logged in
+    if (user && lab) {
+      try {
+        const stepIndex = lab.steps.findIndex((s: any) => s.name.toLowerCase().replace(/\s+/g, '-') === stepId);
+        const stepTitle = stepIndex >= 0 ? lab.steps[stepIndex].name : stepId;
+        
+        await ProgressClient.updateStepProgress(
+          params.labId as string,
+          stepId,
+          stepTitle,
+          true
+        );
+        
+        // If all steps are completed, mark the lab as completed
+        if (lab.steps.length === completedSteps.length + 1) {
+          await ProgressClient.completeLab(params.labId as string);
+        }
+      } catch (error) {
+        console.error('Error updating step progress:', error);
+      }
+    }
+  };
+  
+  // Check if step is completed
+  const isStepCompleted = (stepName: string) => {
+    const stepId = stepName.toLowerCase().replace(/\s+/g, '-');
+    return completedSteps.includes(stepId);
+  };
   
   // Set up interactive lab elements
   useEffect(() => {
-    if (!lab || loading) return
+    if (!lab) return;
     
     // This is where you'd initialize any lab-specific JavaScript
-    // In a real application, you might load an iframe, a VM, or
-    // other interactive elements based on the lab type
-    
+    // For example, setting up a terminal, configuring a sandbox environment, etc.
     const setupLabInteractions = () => {
-      if (lab.id === "web-xss-lab") {
-        // Set up XSS lab interactions
-        const searchButton = document.getElementById('search-button')
-        const searchInput = document.getElementById('search-input') as HTMLInputElement
-        const searchResult = document.getElementById('search-result')
-        const searchTerm = document.getElementById('search-term')
-        
-        if (searchButton && searchInput && searchResult && searchTerm) {
-          searchButton.addEventListener('click', () => {
-            searchResult?.classList.remove('hidden')
-            // Deliberately vulnerable to XSS for demonstration purposes
-            searchTerm.innerHTML = searchInput.value
-            
-            // Check if user has successfully completed the challenge
-            if (searchInput.value.includes("<script>alert('XSS Successful!')</script>")) {
-              setTimeout(() => {
-                setSuccess(true)
-              }, 1000)
-            }
-          })
-        }
-        
-        // Set up comment form for stored XSS example
-        const commentButton = document.getElementById('comment-button')
-        const nameInput = document.getElementById('name-input') as HTMLInputElement
-        const commentInput = document.getElementById('comment-input') as HTMLTextAreaElement
-        const commentsList = document.getElementById('comments-list')
-        
-        if (commentButton && nameInput && commentInput && commentsList) {
-          commentButton.addEventListener('click', () => {
-            const newComment = document.createElement('div')
-            newComment.className = 'comment p-2 border-b border-gray-700'
-            // Again, deliberately vulnerable for demo purposes
-            newComment.innerHTML = `<strong>${nameInput.value}:</strong> ${commentInput.value}`
-            commentsList.appendChild(newComment)
-            nameInput.value = ''
-            commentInput.value = ''
-          })
-        }
-        
-        // Set up profile preview for the final challenge
-        const previewButton = document.getElementById('preview-button')
-        const usernameInput = document.getElementById('username-input') as HTMLInputElement
-        const fullnameInput = document.getElementById('fullname-input') as HTMLInputElement
-        const bioInput = document.getElementById('bio-input') as HTMLTextAreaElement
-        const websiteInput = document.getElementById('website-input') as HTMLInputElement
-        const profilePreview = document.getElementById('profile-preview')
-        const previewName = document.getElementById('preview-name')
-        const previewUsername = document.getElementById('preview-username')
-        const previewBio = document.getElementById('preview-bio')
-        const previewWebsite = document.getElementById('preview-website') as HTMLAnchorElement
-        
-        if (previewButton && profilePreview && previewName && previewUsername && previewBio && previewWebsite) {
-          previewButton.addEventListener('click', () => {
-            profilePreview?.classList.remove('hidden')
-            
-            // Deliberately vulnerable for demo purposes
-            previewName.innerHTML = fullnameInput.value
-            previewUsername.innerText = '@' + usernameInput.value
-            previewBio.innerHTML = bioInput.value
-            previewWebsite.innerText = websiteInput.value
-            previewWebsite.href = websiteInput.value
-          })
-        }
+      const container = document.getElementById('lab-interaction-container');
+      if (!container) return;
+      
+      switch (lab.id) {
+        case 'xss-playground':
+          // Set up XSS lab with input field and submit button
+          container.innerHTML = `
+            <div class="p-4 bg-black border border-gray-700 rounded-md">
+              <h3 class="text-lg font-medium text-white mb-3">XSS Playground</h3>
+              <p class="text-gray-300 mb-4">Try to execute an XSS payload in the input field below:</p>
+              <div class="mb-4">
+                <input type="text" id="xss-input" placeholder="Enter your payload here" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white"/>
+              </div>
+              <div class="flex justify-end">
+                <button id="test-xss" class="px-4 py-2 bg-[#00FF00]/10 text-[#00FF00] border border-[#00FF00]/30 rounded hover:bg-[#00FF00]/20">
+                  Test Payload
+                </button>
+              </div>
+              <div id="xss-result" class="mt-4 p-4 border border-dashed border-gray-700 bg-black"></div>
+            </div>
+          `;
+          
+          // Set up event listeners
+          const testButton = document.getElementById('test-xss');
+          const input = document.getElementById('xss-input') as HTMLInputElement;
+          const result = document.getElementById('xss-result');
+          
+          if (testButton && input && result) {
+            testButton.addEventListener('click', () => {
+              const payload = input.value.trim();
+              if (!payload) return;
+              
+              // Validate solution
+              const validation = validateSolution(lab.id, payload);
+              setValidationResult(validation);
+              
+              // Display the result - in a real app, this would be in a sandboxed iframe
+              try {
+                result.innerHTML = `<div class="text-gray-400">Output:</div><div class="mt-2">${payload}</div>`;
+              } catch (e) {
+                result.textContent = 'Error rendering output';
+              }
+            });
+          }
+          break;
+          
+        // Add more lab types here  
+        default:
+          container.innerHTML = `<p class="text-gray-400">No interactive elements for this lab.</p>`;
       }
-    }
+    };
     
-    // Call the setup function after a short delay to ensure the DOM is ready
-    setTimeout(setupLabInteractions, 500)
+    setupLabInteractions();
     
     // Cleanup function
     return () => {
       // Remove event listeners or cleanup resources
     }
-  }, [lab, loading, currentStep])
+  }, [lab]);
   
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00FF00]"></div>
-      </div>
-    )
-  }
-  
+  const handleStepClick = (stepName: string) => {
+    const tabId = stepName.toLowerCase().replace(/\s+/g, '-');
+    setActiveTab(tabId);
+  };
+
   if (!lab) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>Lab not found. Please select a valid lab.</AlertDescription>
-        </Alert>
-        
-        <div className="mt-4">
-          <Button 
-            onClick={() => router.push('/cyber-labs')}
-            variant="outline"
-            className="text-[#00FF00]"
-          >
-            <ChevronLeft className="mr-2 h-4 w-4" />
-            Back to Labs
-          </Button>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin w-8 h-8 border-4 border-t-[#00FF00] border-r-transparent border-b-transparent border-l-transparent rounded-full"></div>
       </div>
-    )
+    );
   }
-  
+
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="flex justify-between items-center mb-8">
-        <Button 
-          onClick={() => router.push('/cyber-labs')}
-          variant="outline"
-          className="text-[#00FF00]"
-        >
-          <ChevronLeft className="mr-2 h-4 w-4" />
-          Back to Labs
-        </Button>
-        
-        <div className="flex items-center space-x-2">
-          <Badge variant="outline" className="bg-[#00FF00]/10 text-[#00FF00] border-[#00FF00]/30">
-            {lab.difficulty}
-          </Badge>
-          <span className="text-gray-400">{lab.duration}</span>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Sidebar with lab information and progress */}
-        <div className="lg:col-span-1">
-          <Card className="bg-black border border-gray-800">
-            <CardHeader>
-              <CardTitle className="text-xl text-white">{lab.title}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-300 mb-4">{lab.description}</p>
+    <div className="min-h-screen bg-black pt-8">
+      <div className="container mx-auto px-4">
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Main content - 70% width on large screens */}
+          <div className="w-full lg:w-[70%]">
+            <div className="mb-6">
+              <Link
+                href="/cyber-labs"
+                className="inline-flex items-center text-[#00FF00] hover:text-[#00FF00]/80 transition-colors mb-4"
+              >
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Back to Labs
+              </Link>
               
-              <div className="space-y-4 mt-6">
-                <h3 className="text-lg font-medium text-white">Progress</h3>
-                <div className="space-y-2">
-                  {lab.steps.map((step: any, index: number) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentStep(index)}
-                      className={`w-full text-left px-3 py-2 rounded flex items-center ${
-                        currentStep === index 
-                          ? 'bg-[#00FF00]/20 text-[#00FF00]' 
-                          : 'text-gray-300 hover:bg-gray-800'
-                      }`}
-                    >
-                      {index < currentStep ? (
-                        <CheckCircle2 className="mr-2 h-4 w-4 text-[#00FF00]" />
-                      ) : currentStep === index ? (
-                        <GitBranch className="mr-2 h-4 w-4" />
-                      ) : (
-                        <Lock className="mr-2 h-4 w-4 text-gray-500" />
-                      )}
-                      {step.name}
-                    </button>
-                  ))}
+              <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">{lab.title}</h1>
+              
+              <div className="flex flex-wrap gap-2 mb-4">
+                {lab.tags.map((tag: string, index: number) => (
+                  <Badge key={index} className="bg-[#00FF00]/10 text-[#00FF00] border border-[#00FF00]/30">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+              
+              <p className="text-gray-300 text-lg mb-6">{lab.description}</p>
+              
+              <div className="flex flex-wrap gap-4 mb-6">
+                <div className="flex items-center text-gray-400">
+                  <AlertCircle className="mr-2 h-5 w-5 text-amber-500" />
+                  <span>Difficulty: <span className="text-white">{lab.difficulty}</span></span>
+                </div>
+                
+                <div className="flex items-center text-gray-400">
+                  <Clock className="mr-2 h-5 w-5 text-blue-400" />
+                  <span>Time: <span className="text-white">{lab.duration}</span></span>
+                </div>
+                
+                <div className="flex items-center text-gray-400">
+                  <GitBranch className="mr-2 h-5 w-5 text-purple-400" />
+                  <span>Category: <span className="text-white">{lab.category}</span></span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Main content area for lab */}
-        <div className="lg:col-span-2">
-          <Card className="bg-black border border-gray-800">
-            <CardHeader>
-              <CardTitle className="text-xl text-white">
-                Step {currentStep + 1}: {lab.steps[currentStep].name}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Lab content - using dangerouslySetInnerHTML for rich content 
-                  In a real application, you'd want to use a safer approach */}
-              <div 
-                className="prose prose-invert max-w-none"
-                dangerouslySetInnerHTML={{ __html: lab.steps[currentStep].content }}
-              />
+            </div>
+            
+            {/* Lab content with tabs for steps */}
+            <Card className="bg-gray-900/40 border-gray-800">
+              <CardHeader className="border-b border-gray-800">
+                <div className="overflow-x-auto">
+                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                    <TabsList className="bg-black/40 border border-gray-800">
+                      <TabsTrigger value="intro" className="data-[state=active]:bg-[#00FF00]/10 data-[state=active]:text-[#00FF00]">
+                        Introduction
+                        {isStepCompleted('Introduction') && (
+                          <CheckCircle className="h-3 w-3 ml-1 text-[#00FF00]" />
+                        )}
+                      </TabsTrigger>
+                      
+                      {lab.steps.slice(1).map((step: any, index: number) => {
+                        const stepId = step.name.toLowerCase().replace(/\s+/g, '-');
+                        const completed = isStepCompleted(step.name);
+                        
+                        return (
+                          <TabsTrigger 
+                            key={stepId} 
+                            value={stepId}
+                            className="data-[state=active]:bg-[#00FF00]/10 data-[state=active]:text-[#00FF00]"
+                          >
+                            {step.name}
+                            {completed && (
+                              <CheckCircle className="h-3 w-3 ml-1 text-[#00FF00]" />
+                            )}
+                          </TabsTrigger>
+                        );
+                      })}
+                    </TabsList>
+                    
+                    <TabsContent value="intro" className="mt-6 px-1">
+                      <div dangerouslySetInnerHTML={{ __html: lab.steps[0].content }} />
+                      
+                      <div className="mt-6">
+                        <LabStepProgress
+                          labId={params.labId as string}
+                          stepId="introduction"
+                          title="Introduction"
+                          isCompleted={isStepCompleted('Introduction')}
+                          onStepComplete={() => handleStepComplete('introduction')}
+                        />
+                      </div>
+                    </TabsContent>
+                    
+                    {lab.steps.slice(1).map((step: any, index: number) => {
+                      const stepId = step.name.toLowerCase().replace(/\s+/g, '-');
+                      return (
+                        <TabsContent key={stepId} value={stepId} className="mt-6 px-1">
+                          <div dangerouslySetInnerHTML={{ __html: step.content }} />
+                          
+                          <div className="mt-6">
+                            <LabStepProgress
+                              labId={params.labId as string}
+                              stepId={stepId}
+                              title={step.name}
+                              isCompleted={isStepCompleted(step.name)}
+                              onStepComplete={() => handleStepComplete(stepId)}
+                            />
+                          </div>
+                        </TabsContent>
+                      );
+                    })}
+                  </Tabs>
+                </div>
+              </CardHeader>
               
-              {/* Success message shown after completing a challenge */}
-              {success && (
-                <Alert className="mt-6 bg-green-900/20 border-green-500 text-green-400">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <AlertTitle>Challenge Completed!</AlertTitle>
-                  <AlertDescription>
-                    You've successfully completed this challenge. Move on to the next step to continue.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-            <CardFooter className="border-t border-gray-800 flex justify-between">
-              <Button 
-                variant="outline" 
-                className="text-gray-400"
-                onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
-                disabled={currentStep === 0}
-              >
-                Previous
-              </Button>
+              <CardContent className="pt-6">
+                {/* Lab interaction container */}
+                <div id="lab-interaction-container" className="mb-6">
+                  {/* Interactive content will be injected here by setupLabInteractions */}
+                </div>
+                
+                {/* Solution validation */}
+                {validationResult && (
+                  <Alert 
+                    className={`mb-6 ${validationResult.success ? 'bg-green-900/20 border-green-900' : 'bg-red-900/20 border-red-900'}`}
+                  >
+                    <div className={`flex items-center gap-2 ${validationResult.success ? 'text-green-400' : 'text-red-400'}`}>
+                      {validationResult.success ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4" />
+                      )}
+                      <AlertTitle>{validationResult.success ? 'Success!' : 'Incorrect'}</AlertTitle>
+                    </div>
+                    <AlertDescription className="mt-2 text-gray-300">
+                      {validationResult.message}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
               
-              <Button 
-                className="bg-[#00FF00]/10 text-[#00FF00] hover:bg-[#00FF00]/20 border border-[#00FF00]/30"
-                onClick={() => {
-                  if (currentStep < lab.steps.length - 1) {
-                    setCurrentStep(currentStep + 1)
-                  } else {
-                    // Final step completed - award badge or certificate
-                    router.push('/cyber-labs')
-                  }
-                }}
-                disabled={currentStep === lab.steps.length - 1 && !success}
-              >
-                {currentStep < lab.steps.length - 1 ? 'Next' : 'Complete Lab'}
-              </Button>
-            </CardFooter>
-          </Card>
+              <CardFooter className="flex justify-between border-t border-gray-800 pt-6">
+                <Button 
+                  variant="ghost"
+                  className="border border-dashed border-gray-700 text-gray-400 hover:text-[#00FF00] hover:border-[#00FF00]/30 hover:bg-[#00FF00]/5"
+                  onClick={() => router.push("/cyber-labs")}
+                >
+                  <ChevronLeft className="mr-2 h-4 w-4" />
+                  Back to Labs
+                </Button>
+                
+                <Button
+                  className="bg-[#00FF00] text-black hover:bg-[#00FF00]/90"
+                  onClick={() => router.push("/cyber-labs/solutions/" + lab.id)}
+                >
+                  <Trophy className="mr-2 h-4 w-4" />
+                  View Solution
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+          
+          {/* Sidebar - 30% width on large screens */}
+          <div className="w-full lg:w-[30%] space-y-6">
+            {/* Lab Progress */}
+            {user && (
+              <LabProgress labId={params.labId as string} />
+            )}
+            
+            {/* Step Progress */}
+            <Card className="bg-gray-900/40 border-gray-800">
+              <CardHeader>
+                <CardTitle className="text-lg text-white">Lab Steps</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {lab.steps.map((step: any, index: number) => {
+                  const stepId = step.name.toLowerCase().replace(/\s+/g, '-');
+                  const completed = isStepCompleted(step.name);
+                  
+                  return (
+                    <div 
+                      key={stepId}
+                      className={`flex items-center justify-between p-3 rounded-md cursor-pointer transition-colors ${
+                        activeTab === stepId ? 'bg-[#00FF00]/10 border border-[#00FF00]/30' : 'bg-black/30 border border-gray-800 hover:bg-black/50'
+                      }`}
+                      onClick={() => handleStepClick(step.name)}
+                    >
+                      <div className="flex items-center">
+                        <span className={`w-6 h-6 flex items-center justify-center rounded-full border ${
+                          completed ? 'border-[#00FF00] bg-[#00FF00]/20 text-[#00FF00]' : 'border-gray-600 bg-black/50 text-gray-400'
+                        } mr-3`}>
+                          {completed ? (
+                            <CheckCircle className="h-4 w-4" />
+                          ) : (
+                            index + 1
+                          )}
+                        </span>
+                        <span className={completed ? 'text-[#00FF00]' : 'text-gray-300'}>
+                          {step.name}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
-  )
+  );
 } 
