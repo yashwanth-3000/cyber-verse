@@ -13,6 +13,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  output: 'standalone',
   images: {
     unoptimized: true,
     remotePatterns: [
@@ -38,6 +39,11 @@ const nextConfig = {
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
+  trailingSlash: false,
+  generateBuildId: async () => {
+    // You can, for example, get the latest git commit hash here
+    return 'my-build-id-' + Date.now()
+  }
 }
 
 mergeConfig(nextConfig, userConfig)
