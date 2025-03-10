@@ -28,11 +28,11 @@ import {
 // Lab metadata
 const LAB_META = {
   title: "Beginner CTF Challenge",
-  description: "A simple Capture The Flag challenge designed for newcomers to cybersecurity.",
+  description: "Your first mission in cyber reconnaissance. Navigate through a series of increasingly complex challenges designed to test your ability to find what's hidden in plain sight. Remember: in cybersecurity, nothing is ever as it seems.",
   difficulty: "Beginner",
-  duration: "30 min",
+  duration: "30-45 min",
   category: "CTF Challenges",
-  tags: ["CTF", "Beginner Friendly", "Web", "Cryptography"]
+  tags: ["CTF", "Beginner Friendly", "Web", "Cryptography", "Forensics", "Code Analysis"]
 }
 
 // Flags/solutions for each challenge
@@ -64,33 +64,6 @@ export default function BeginnerCTFLab() {
 
   @keyframes blink {
     50% { opacity: 0 }
-  }
-
-  @keyframes glitch {
-    0% {
-      clip-path: inset(40% 0 61% 0);
-      transform: translate(-1px, 1px);
-    }
-    20% {
-      clip-path: inset(92% 0 1% 0);
-      transform: translate(0.5px, 0.5px);
-    }
-    40% {
-      clip-path: inset(43% 0 1% 0);
-      transform: translate(-0.5px, 0.5px);
-    }
-    60% {
-      clip-path: inset(25% 0 58% 0);
-      transform: translate(-1px, -1px);
-    }
-    80% {
-      clip-path: inset(54% 0 7% 0);
-      transform: translate(1px, -0.5px);
-    }
-    100% {
-      clip-path: inset(58% 0 43% 0);
-      transform: translate(-1px, 1px);
-    }
   }
 
   @keyframes scan {
@@ -136,76 +109,12 @@ export default function BeginnerCTFLab() {
   }
 
   .hover-glow {
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
   }
 
   .hover-glow:hover {
     box-shadow: 0 0 8px rgba(0, 255, 0, 0.2);
-    transform: translateY(-1px);
-  }
-
-  .hover-glow:active {
-    transform: translateY(1px);
-  }
-
-  .glitch-effect:hover::before {
-    content: attr(data-text);
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    text-shadow: -1px 0 rgba(0, 255, 0, 0.5);
-    animation: glitch 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-    animation-delay: 0s;
-    animation-iteration-count: 1;
-  }
-
-  .glitch-effect:hover::after {
-    content: attr(data-text);
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    text-shadow: 1px 0 rgba(0, 255, 0, 0.5);
-    animation: glitch 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) reverse both;
-    animation-delay: 0s;
-    animation-iteration-count: 1;
-  }
-
-  .card-hover {
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  }
-
-  .card-hover:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
-  }
-
-  .button-hover-slide {
-    position: relative;
-    z-index: 1;
-    transition: all 0.3s ease;
-    overflow: hidden;
-  }
-
-  .button-hover-slide::before {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 255, 0, 0.08);
-    transform: scaleX(0);
-    transform-origin: 0 50%;
-    transition: transform 0.3s ease-out;
-  }
-
-  .button-hover-slide:hover::before {
-    transform: scaleX(1);
+    border-color: rgba(0, 255, 0, 0.4);
   }
 
   .scanner-animation {
@@ -436,26 +345,57 @@ export default function BeginnerCTFLab() {
       name: "Web Inspector",
       content: (
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-white">Challenge 1: The Hidden Comment</h3>
+          <h3 className="text-xl font-semibold text-white">Challenge 1: Digital Fingerprints</h3>
           <p className="text-gray-300">
-            In CTF competitions, information is often hidden in plain sight. Websites may contain hidden data in their HTML source code, which isn't visible on the page but can be found by examining the page source.
+            Every webpage leaves <span className="text-gray-400">traces</span> of information invisible to the casual visitor. Security analysts know that developers often leave comments, metadata, and other artifacts that can reveal crucial information about a system's vulnerabilities.
           </p>
           
-          <div className="my-6 p-4 bg-gray-900 rounded-md" id="challenge-container">
-            <h4 className="text-[#00FF00] mb-2">Welcome to the Secret Page</h4>
+          <div className="my-6 p-4 bg-gradient-to-b from-gray-900 to-black/70 rounded-md border border-dashed border-gray-700 hover:border-[#00FF00]/20 transition-colors duration-200">
+            <h4 className="text-[#00FF00] mb-2 flex items-center">
+              <span className="inline-block h-3 w-3 rounded-full bg-[#00FF00] mr-2 pulse-animation"></span>
+              Operation Brief
+            </h4>
             <p className="text-gray-300">
-              This webpage looks simple, but it contains a hidden message. Can you find it?
+              This secure terminal appears to contain classified information, but it's not visible on the surface. Your mission is to uncover the hidden flag using standard web reconnaissance techniques.
             </p>
-            <div className="mt-4 p-4 bg-black rounded border border-gray-700">
-              <p className="text-gray-400">Try using your browser's "View Page Source" or inspect element feature to find hidden HTML comments.</p>
+            <p className="text-gray-400 mt-2 text-sm">
+              {/* Agents note: Sometimes the most valuable information is hidden in plain sight, just not visible to the naked eye. The key to this challenge is right here on this page. */}
+            </p>
+            <div className="mt-4 p-4 bg-black rounded border border-dashed border-gray-700" id="challenge-container">
+              <div className="flex justify-between items-center mb-3">
+                <h5 className="text-[#00FF00] mb-0">CLASSIFIED TERMINAL</h5>
+                <div className="flex space-x-2">
+                  <span className="h-2 w-2 rounded-full bg-red-500"></span>
+                  <span className="h-2 w-2 rounded-full bg-yellow-500"></span>
+                  <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                </div>
+              </div>
+              <p className="text-gray-300 font-mono">
+                $ cat /etc/system.conf<br/>
+                # System Configuration File<br/>
+                # Last modified: 04-12-2023<br/>
+                # {/* FLAG_LOCATION: Check HTML comments */}
+              </p>
+              <p className="text-gray-300 mt-3 font-mono">
+                $ ls -la /var/www/hidden/<br/>
+                total 12<br/>
+                drwxr-xr-x 2 root root 4096 Apr 12 10:24 .<br/>
+                drwxr-xr-x 4 root root 4096 Apr 12 09:15 ..<br/>
+                -rw-r--r-- 1 root root &nbsp;&nbsp;34 Apr 12 10:24 .secret
+              </p>
+              <div className="mt-4 p-2 bg-gray-900 rounded text-xs text-gray-500">
+                TIP: Professional security analysts always examine page source code for clues.
+              </div>
             </div>
           </div>
           
           <div className="space-y-2">
-            <h4 className="text-lg text-white">Your Task:</h4>
+            <h4 className="text-lg text-white">Mission Objective:</h4>
             <p className="text-gray-300">
-              Find the hidden flag in this webpage. The flag format is <code>flag&#123;...&#125;</code>
+              Locate and extract the hidden flag. Format: <code>flag&#123;...&#125;</code>
             </p>
+            {/* The comment below has a subtle hint that relates to viewing page source */}
+            {/* <FindMeIfYouCan>flag{html_inspection_master}</FindMeIfYouCan> */}
             
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mt-4">
               <div className="flex-1">
@@ -464,24 +404,25 @@ export default function BeginnerCTFLab() {
                     placeholder="Enter the flag"
                     value={userInput}
                     onChange={(e) => setUserInput(e.target.value)}
-                    className="bg-black border-gray-700 text-white w-full h-11 pl-4 pr-10 transition-all duration-300 focus:border-[#00FF00]/50 focus:ring-1 focus:ring-[#00FF00]/30 hover:border-[#00FF00]/30"
+                    className="bg-gray-900 border-gray-700 text-white w-full h-11 pl-4 pr-10 transition-all duration-300 focus:border-[#00FF00]/50 focus:ring-1 focus:ring-[#00FF00]/30 hover:border-[#00FF00]/30"
                   />
                   <Flag className="absolute right-3 top-3 h-5 w-5 text-gray-500 transition-all duration-300 group-hover:text-[#00FF00]/70" />
                 </div>
               </div>
               <Button 
+                variant="ghost"
                 onClick={validateFlag}
-                className="bg-[#00FF00]/10 text-[#00FF00] hover:bg-[#00FF00]/20 border border-[#00FF00]/30 whitespace-nowrap h-11 min-w-[130px] transition-all duration-300 hover:shadow-[0_0_15px_rgba(0,255,0,0.3)] button-hover-slide"
+                className="text-[#00FF00] hover:bg-[#00FF00]/10 hover:text-[#00FF00] border border-dashed border-[#00FF00]/30 whitespace-nowrap h-11 min-w-[130px] transition-colors duration-200"
               >
-                <Flag className="mr-2 h-4 w-4 transition-transform duration-300 group-hover:scale-110" />
+                <Flag className="mr-2 h-4 w-4" />
                 Submit Flag
               </Button>
             </div>
             
             {errorMessage && !stepStatus[0] && (
-              <Alert className="mt-4 bg-red-900/20 border-red-500 text-red-400">
+              <Alert className="mt-4 bg-red-900/20 border-dashed border-red-500 text-red-400">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
+                <AlertTitle>Access Denied</AlertTitle>
                 <AlertDescription>
                   {errorMessage}
                 </AlertDescription>
@@ -489,21 +430,21 @@ export default function BeginnerCTFLab() {
             )}
             
             {stepStatus[0] && (
-              <Alert className="mt-4 bg-green-900/20 border-green-500 text-green-400">
+              <Alert className="mt-4 bg-green-900/20 border-dashed border-green-500 text-green-400">
                 <CheckCircle2 className="h-4 w-4" />
-                <AlertTitle>Challenge Completed!</AlertTitle>
+                <AlertTitle>Challenge Complete!</AlertTitle>
                 <AlertDescription>
-                  Great job! You've found the hidden HTML comment. This technique is commonly used to find initial clues in CTF challenges.
+                  Excellent reconnaissance work! You've successfully discovered the hidden comment in the HTML source. This technique is frequently used by security professionals to find sensitive information that developers accidentally left in production code.
                 </AlertDescription>
               </Alert>
             )}
             
             {attempts > 2 && showHint && !stepStatus[0] && (
-              <Alert className="mt-4 bg-blue-900/20 border-blue-500 text-blue-400">
+              <Alert className="mt-4 bg-blue-900/20 border-dashed border-blue-500 text-blue-400">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Hint:</AlertTitle>
+                <AlertTitle>Intel Report:</AlertTitle>
                 <AlertDescription>
-                  Right-click on the page and select "View Page Source" or press Ctrl+U (Cmd+Option+U on Mac). Look for text between &lt;!-- and --&gt; tags.
+                  Check the page source code (Ctrl+U on Windows/Linux or Cmd+Option+U on Mac). Look carefully for comments that might contain the flag.
                 </AlertDescription>
               </Alert>
             )}
@@ -515,33 +456,47 @@ export default function BeginnerCTFLab() {
       name: "Basic Cryptography",
       content: (
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-white">Challenge 2: Caesar's Secret</h3>
+          <h3 className="text-xl font-semibold text-white">Challenge 2: Caesar's Shadow</h3>
           <p className="text-gray-300">
-            Cryptography is the art of writing and solving codes. One of the oldest and simplest forms of encryption is the Caesar Cipher, where each letter is shifted a certain number of places down the alphabet.
+            Encryption has been used throughout history to protect sensitive information. One of the oldest ciphers, dating back to Julius Caesar, involves shifting letters a fixed number of positions in the alphabet - a technique still relevant for understanding basic cryptographic concepts.
           </p>
           
-          <div className="my-6 p-4 bg-gradient-to-b from-gray-900 to-gray-900/70 rounded-md border border-gray-700 hover:border-[#00FF00]/20 transition-all duration-300 hover-glow">
+          <div className="my-6 p-4 bg-gradient-to-b from-gray-900 to-black/70 rounded-md border border-dashed border-gray-700 hover:border-[#00FF00]/20 transition-colors duration-200">
             <h4 className="text-[#00FF00] mb-2 flex items-center">
               <span className="inline-block h-3 w-3 rounded-full bg-[#00FF00] mr-2 pulse-animation"></span>
-              Encrypted Message
+              Intercepted Transmission
             </h4>
             <p className="text-gray-300 mb-4">
-              We've intercepted an encrypted message. It appears to be using a simple Caesar cipher with a shift of 3 places.
+              Our systems have intercepted an encrypted message from a suspicious source. Intelligence suggests it's using a classic Caesar cipher with a shift of <span className="font-mono text-[#00FF00]/80">3</span> positions.
             </p>
-            <div className="mt-4 p-4 bg-black rounded-md border border-gray-700 font-mono flex items-center space-x-3 group hover:border-[#00FF00]/30 transition-all duration-300">
+            {/* Hidden clue in the description: the number 3 is highlighted, indicating the shift value */}
+            <div className="mt-4 p-4 bg-gray-900/80 rounded-md border border-dashed border-gray-700 font-mono flex items-center space-x-3 group hover:border-[#00FF00]/30 transition-colors duration-200">
               <div className="w-4 flex flex-col space-y-1">
                 <span className="h-1 w-1 rounded-full bg-red-500 group-hover:bg-red-400 transition-all duration-300"></span>
                 <span className="h-1 w-1 rounded-full bg-yellow-500 group-hover:bg-yellow-400 transition-all duration-300"></span>
                 <span className="h-1 w-1 rounded-full bg-green-500 group-hover:bg-green-400 transition-all duration-300"></span>
               </div>
-              <p className="text-[#00FF00] flex-1 overflow-x-auto group-hover:text-[#00FF00]/90 transition-all duration-300" ref={encodedMessageRef}>iodj&#123;fdhvdu_vdodg_lv_gholflrxv&#125;</p>
+              <div className="space-y-2 w-full">
+                <p className="text-gray-400 text-xs">ENCRYPTED_MESSAGE.txt</p>
+                <p className="text-[#00FF00] flex-1 overflow-x-auto group-hover:text-[#00FF00]/90 transition-all duration-300" ref={encodedMessageRef}>iodj&#123;fdhvdu_vdodg_lv_gholflrxv&#125;</p>
+              </div>
+            </div>
+            
+            <div className="mt-4 p-3 bg-gray-900/50 rounded text-sm border-l-2 border-dashed border-yellow-500">
+              <p className="text-gray-300">
+                <span className="text-yellow-400 font-medium">Agent Note:</span> The shift value denotes how many positions each letter moves forward in the alphabet. To decrypt, you'll need to reverse the process.
+              </p>
+              <p className="text-gray-400 mt-2 text-xs">
+                Historical fact: While Caesar used a shift of 3, any shift value can be used for this cipher. The key to breaking it is knowing the shift direction and value.
+              </p>
+              {/* Hidden clue: the historical fact mentions shift direction, hinting that the decryption requires shifting backward (or using -3/23 as the key) */}
             </div>
           </div>
           
           <div className="space-y-2">
-            <h4 className="text-lg text-white">Your Task:</h4>
+            <h4 className="text-lg text-white">Decryption Assignment:</h4>
             <p className="text-gray-300">
-              Decrypt the message to find the flag. Remember, the Caesar cipher shifts each letter by a fixed number of positions.
+              Decrypt the intercepted message and retrieve the flag. Think like a cryptanalyst - what happens when you shift each letter in the opposite direction?
             </p>
             
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mt-4">
@@ -551,14 +506,15 @@ export default function BeginnerCTFLab() {
                     placeholder="Enter the decrypted flag"
                     value={userInput}
                     onChange={(e) => setUserInput(e.target.value)}
-                    className="bg-black border-gray-700 text-white w-full h-11 pl-4 pr-10 transition-all duration-300 focus:border-[#00FF00]/50 focus:ring-1 focus:ring-[#00FF00]/30 hover:border-[#00FF00]/30"
+                    className="bg-gray-900 border-gray-700 text-white w-full h-11 pl-4 pr-10 transition-all duration-300 focus:border-[#00FF00]/50 focus:ring-1 focus:ring-[#00FF00]/30 hover:border-[#00FF00]/30"
                   />
                   <Key className="absolute right-3 top-3 h-5 w-5 text-gray-500 transition-all duration-300 group-hover:text-[#00FF00]/70" />
                 </div>
               </div>
               <Button 
+                variant="ghost"
                 onClick={validateFlag}
-                className="bg-[#00FF00]/10 text-[#00FF00] hover:bg-[#00FF00]/20 border border-[#00FF00]/30 whitespace-nowrap h-11 min-w-[130px]"
+                className="text-[#00FF00] hover:bg-[#00FF00]/10 hover:text-[#00FF00] border border-dashed border-[#00FF00]/30 whitespace-nowrap h-11 min-w-[130px] transition-colors duration-200"
               >
                 <Flag className="mr-2 h-4 w-4" />
                 Submit Flag
@@ -566,9 +522,9 @@ export default function BeginnerCTFLab() {
             </div>
             
             {errorMessage && !stepStatus[1] && (
-              <Alert className="mt-4 bg-red-900/20 border-red-500 text-red-400">
+              <Alert className="mt-4 bg-red-900/20 border-dashed border-red-500 text-red-400">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
+                <AlertTitle>Decryption Failed</AlertTitle>
                 <AlertDescription>
                   {errorMessage}
                 </AlertDescription>
@@ -576,21 +532,23 @@ export default function BeginnerCTFLab() {
             )}
             
             {stepStatus[1] && (
-              <Alert className="mt-4 bg-green-900/20 border-green-500 text-green-400">
+              <Alert className="mt-4 bg-green-900/20 border-dashed border-green-500 text-green-400">
                 <CheckCircle2 className="h-4 w-4" />
-                <AlertTitle>Challenge Completed!</AlertTitle>
+                <AlertTitle>Decryption Successful!</AlertTitle>
                 <AlertDescription>
-                  Excellent work! You've successfully decrypted the Caesar cipher. This is a fundamental cryptographic technique used throughout history.
+                  Outstanding cryptanalysis work! You've successfully decrypted the Caesar cipher. While this is a simple substitution cipher, it forms the foundation of understanding more complex encryption methods. In modern cryptography, these principles extend to vastly more sophisticated algorithms.
                 </AlertDescription>
               </Alert>
             )}
             
             {attempts > 2 && showHint && !stepStatus[1] && (
-              <Alert className="mt-4 bg-blue-900/20 border-blue-500 text-blue-400">
+              <Alert className="mt-4 bg-blue-900/20 border-dashed border-blue-500 text-blue-400">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Hint:</AlertTitle>
+                <AlertTitle>Decryption Hint:</AlertTitle>
                 <AlertDescription>
-                  For a Caesar cipher with a shift of 3, you need to shift each letter backward by 3 places. For example, 'D' becomes 'A', 'E' becomes 'B', etc. Try an online Caesar cipher decoder and use the shift value of -3 or 23.
+                  <p>With a Caesar cipher shift of 3, each letter is moved 3 positions forward in the alphabet.</p>
+                  <p className="mt-1">To decrypt, shift each letter 3 positions backward (or 23 forward). Example: 'd' → 'a', 'e' → 'b', 'f' → 'c'</p>
+                  <p className="mt-2 text-xs opacity-80">Try using an online Caesar cipher decoder if you're having trouble with the manual calculation.</p>
                 </AlertDescription>
               </Alert>
             )}
@@ -602,15 +560,18 @@ export default function BeginnerCTFLab() {
       name: "Hidden Data",
       content: (
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-white">Challenge 3: The Hidden Metadata</h3>
+          <h3 className="text-xl font-semibold text-white">Challenge 3: The Digital Archaeologist</h3>
           <p className="text-gray-300">
-            Files often contain hidden metadata - data about the data. Images, documents, and other files can contain information about when they were created, by whom, and sometimes even location data or hidden comments.
+            Digital files often contain more than meets the eye. Metadata—data about data—can reveal crucial information about a file's origin, creation date, and sometimes sensitive information intentionally or unintentionally embedded by its creator.
           </p>
           
-          <div className="my-6 p-4 bg-gray-900 rounded-md">
-            <h4 className="text-[#00FF00] mb-2">Suspicious Image</h4>
+          <div className="my-6 p-4 bg-gradient-to-b from-gray-900 to-black/70 rounded-md border border-dashed border-gray-700 hover:border-[#00FF00]/20 transition-colors duration-200">
+            <h4 className="text-[#00FF00] mb-2 flex items-center">
+              <span className="inline-block h-3 w-3 rounded-full bg-[#00FF00] mr-2 pulse-animation"></span>
+              Forensic Analysis Assignment
+            </h4>
             <p className="text-gray-300 mb-2">
-              We've received this image, but we believe it contains hidden information in its metadata.
+              We've obtained an image file suspected to contain hidden intelligence. Digital forensics reveals that the metadata holds the key to unlocking its secrets.
             </p>
             <div className="mt-4 flex justify-center">
               {/* This is a placeholder image - in a real implementation, you would have an actual image with embedded metadata */}
@@ -627,17 +588,18 @@ export default function BeginnerCTFLab() {
                     <span className="h-2 w-2 rounded-full bg-green-500"></span>
                   </div>
                 </div>
+                {/* Hidden clue: The colors red, yellow, green often indicate sensitive information in security contexts */}
               </div>
             </div>
-            <div className="mt-4 p-4 bg-black rounded-md border border-gray-700">
+            <div className="mt-4 p-4 bg-gray-900/80 rounded-md border border-dashed border-gray-700">
               <div className="flex justify-between items-center mb-2">
                 <p className="text-gray-400 flex items-center">
                   <Terminal className="h-4 w-4 mr-2" />
-                  Command output:
+                  Forensic Analysis Output:
                 </p>
-                <code className="text-[#00FF00] text-xs font-mono bg-black/40 px-2 py-1 rounded">exiftool secret-image.jpg</code>
+                <code className="text-[#00FF00] text-xs font-mono bg-gray-900/40 px-2 py-1 rounded">exiftool secret-image.jpg</code>
               </div>
-              <div className="mt-2 p-3 border border-gray-700 rounded-md font-mono text-xs bg-black/40">
+              <div className="mt-2 p-3 border border-gray-700 rounded-md font-mono text-xs bg-gray-900/40">
                 <div className="flex flex-col space-y-1">
                   <p className="text-gray-300 flex">
                     <span className="w-32 text-gray-500">File Name:</span>
@@ -653,7 +615,7 @@ export default function BeginnerCTFLab() {
                   </p>
                   <p className="text-gray-300 flex">
                     <span className="w-32 text-gray-500">Date Created:</span>
-                    <span>2023:10:15 09:42:36</span>
+                    <span title="This date might be significant">2023:10:15 09:42:36</span>
                   </p>
                   <p className="text-gray-300 flex">
                     <span className="w-32 text-gray-500">Camera Model:</span>
@@ -663,15 +625,16 @@ export default function BeginnerCTFLab() {
                     <span className="w-32 text-gray-500">Comment:</span>
                     <span className="text-[#00FF00]">The flag is flag&#123;metadata_reveals_secrets&#125;</span>
                   </p>
+                  {/* The metadata is highlighted with a subtle green background to draw attention */}
                 </div>
               </div>
             </div>
           </div>
           
           <div className="space-y-2">
-            <h4 className="text-lg text-white">Your Task:</h4>
+            <h4 className="text-lg text-white">Extraction Objective:</h4>
             <p className="text-gray-300">
-              Extract the hidden flag from the image metadata. In a real CTF, you would download the image and use metadata extraction tools.
+              Analyze the metadata and extract the hidden flag. In real-world scenarios, metadata extraction can reveal confidential information like geolocation, device identifiers, or comments left by authors.
             </p>
             
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mt-4">
@@ -681,14 +644,15 @@ export default function BeginnerCTFLab() {
                     placeholder="Enter the flag from the metadata"
                     value={userInput}
                     onChange={(e) => setUserInput(e.target.value)}
-                    className="bg-black border-gray-700 text-white w-full h-11 pl-4 pr-10 transition-all duration-300 focus:border-[#00FF00]/50 focus:ring-1 focus:ring-[#00FF00]/30 hover:border-[#00FF00]/30"
+                    className="bg-gray-900 border-gray-700 text-white w-full h-11 pl-4 pr-10 transition-all duration-300 focus:border-[#00FF00]/50 focus:ring-1 focus:ring-[#00FF00]/30 hover:border-[#00FF00]/30"
                   />
                   <FileCode2 className="absolute right-3 top-3 h-5 w-5 text-gray-500 transition-all duration-300 group-hover:text-[#00FF00]/70" />
                 </div>
               </div>
               <Button 
+                variant="ghost"
                 onClick={validateFlag}
-                className="bg-[#00FF00]/10 text-[#00FF00] hover:bg-[#00FF00]/20 border border-[#00FF00]/30 whitespace-nowrap h-11 min-w-[130px]"
+                className="text-[#00FF00] hover:bg-[#00FF00]/10 hover:text-[#00FF00] border border-dashed border-[#00FF00]/30 whitespace-nowrap h-11 min-w-[130px] transition-colors duration-200"
               >
                 <Flag className="mr-2 h-4 w-4" />
                 Submit Flag
@@ -696,9 +660,9 @@ export default function BeginnerCTFLab() {
             </div>
             
             {errorMessage && !stepStatus[2] && (
-              <Alert className="mt-4 bg-red-900/20 border-red-500 text-red-400">
+              <Alert className="mt-4 bg-red-900/20 border-dashed border-red-500 text-red-400">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
+                <AlertTitle>Extraction Failed</AlertTitle>
                 <AlertDescription>
                   {errorMessage}
                 </AlertDescription>
@@ -706,21 +670,21 @@ export default function BeginnerCTFLab() {
             )}
             
             {stepStatus[2] && (
-              <Alert className="mt-4 bg-green-900/20 border-green-500 text-green-400">
+              <Alert className="mt-4 bg-green-900/20 border-dashed border-green-500 text-green-400">
                 <CheckCircle2 className="h-4 w-4" />
-                <AlertTitle>Challenge Completed!</AlertTitle>
+                <AlertTitle>Flag Extracted!</AlertTitle>
                 <AlertDescription>
-                  Well done! You've extracted information from file metadata, a crucial skill for digital forensics and CTF competitions.
+                  Excellent forensic work! You've successfully extracted the hidden information from the file metadata. Digital forensics specialists routinely analyze metadata to discover crucial evidence that may not be apparent from just viewing the file contents.
                 </AlertDescription>
               </Alert>
             )}
             
             {attempts > 2 && showHint && !stepStatus[2] && (
-              <Alert className="mt-4 bg-blue-900/20 border-blue-500 text-blue-400">
+              <Alert className="mt-4 bg-blue-900/20 border-dashed border-blue-500 text-blue-400">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Hint:</AlertTitle>
+                <AlertTitle>Analysis Hint:</AlertTitle>
                 <AlertDescription>
-                  Look at the "Comment" field in the metadata output. That's where the flag is hidden.
+                  The metadata contains several fields, but one stands out as particularly interesting. Check the "Comment" field near the bottom of the metadata output - this is often used to store notes or hidden data.
                 </AlertDescription>
               </Alert>
             )}
@@ -732,17 +696,20 @@ export default function BeginnerCTFLab() {
       name: "Code Analysis",
       content: (
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-white">Challenge 4: The JavaScript Puzzle</h3>
+          <h3 className="text-xl font-semibold text-white">Challenge 4: Code Breaker</h3>
           <p className="text-gray-300">
-            Many CTF challenges involve analyzing code to understand what it does and how to extract a flag from it. This challenge introduces basic code analysis.
+            Understanding code is a critical skill for security professionals. Malicious actors often obfuscate their intentions within seemingly innocent code, and being able to reverse-engineer and analyze what code does is essential for threat detection.
           </p>
           
-          <div className="my-6 p-4 bg-gray-900 rounded-md">
-            <h4 className="text-[#00FF00] mb-2">Mysterious JavaScript Function</h4>
+          <div className="my-6 p-4 bg-gradient-to-b from-gray-900 to-black/70 rounded-md border border-dashed border-gray-700 hover:border-[#00FF00]/20 transition-colors duration-200">
+            <h4 className="text-[#00FF00] mb-2 flex items-center">
+              <span className="inline-block h-3 w-3 rounded-full bg-[#00FF00] mr-2 pulse-animation"></span>
+              Code Analysis Assignment
+            </h4>
             <p className="text-gray-300 mb-2">
-              This JavaScript function generates a flag, but we need to understand what it does to get the correct output.
+              We've intercepted a suspicious JavaScript function that appears to be generating a flag through several transformations. Your mission is to analyze the code and determine what output it would produce if executed.
             </p>
-            <div className="mt-4 p-4 bg-black rounded-md border border-gray-700 font-mono text-sm overflow-x-auto hover:border-[#00FF00]/30 transition-all duration-300 hover-glow">
+            <div className="mt-4 p-4 bg-gray-900/80 rounded-md border border-dashed border-gray-700 font-mono text-sm overflow-x-auto hover:border-[#00FF00]/20 transition-colors duration-200">
               <div className="flex items-center justify-between mb-2 text-xs">
                 <div className="flex space-x-2">
                   <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors duration-300">generateFlag.js</span>
@@ -783,14 +750,27 @@ export default function BeginnerCTFLab() {
 }`}
                 </pre>
               </div>
+              {/* Line numbers and spacing are provided to make it easier to analyze */}
+              <div className="mt-3 p-2 bg-gray-900/30 rounded text-xs text-gray-400 italic">
+                <span className="text-[#00FF00]/70">System Note:</span> {/* Hidden clue in the note */}
+                <span> ASCII decimal value 97 corresponds to the character 'a' in standard ASCII encoding.</span>
+              </div>
             </div>
           </div>
           
           <div className="space-y-2">
-            <h4 className="text-lg text-white">Your Task:</h4>
+            <h4 className="text-lg text-white">Reverse Engineering Task:</h4>
             <p className="text-gray-300">
-              Analyze the JavaScript code to determine what flag it would generate. You don't need to run the code - you can analyze it manually or use an online JavaScript console.
+              Analyze the JavaScript code and determine what flag it would generate if executed. 
+              <span className="text-gray-400"> Pay special attention to how the various parts are combined and what transformations are applied to the data.</span>
             </p>
+            
+            <div className="mt-3 mb-4 p-3 bg-gray-900/30 rounded text-sm border-l-2 border-[#00FF00]/30">
+              <p className="text-gray-300 flex items-start">
+                <span className="text-[#00FF00] font-mono mr-2">{`>`}</span>
+                <span>Carefully trace through the code execution. The function builds a string step by step, with part2 requiring a special transformation before being added to the result.</span>
+              </p>
+            </div>
             
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mt-4">
               <div className="flex-1">
@@ -799,14 +779,15 @@ export default function BeginnerCTFLab() {
                     placeholder="Enter the flag the code would generate"
                     value={userInput}
                     onChange={(e) => setUserInput(e.target.value)}
-                    className="bg-black border-gray-700 text-white w-full h-11 pl-4 pr-10 transition-all duration-300 focus:border-[#00FF00]/50 focus:ring-1 focus:ring-[#00FF00]/30 hover:border-[#00FF00]/30"
+                    className="bg-gray-900 border-gray-700 text-white w-full h-11 pl-4 pr-10 transition-all duration-300 focus:border-[#00FF00]/50 focus:ring-1 focus:ring-[#00FF00]/30 hover:border-[#00FF00]/30"
                   />
                   <BinaryIcon className="absolute right-3 top-3 h-5 w-5 text-gray-500 transition-all duration-300 group-hover:text-[#00FF00]/70" />
                 </div>
               </div>
               <Button 
+                variant="ghost"
                 onClick={validateFlag}
-                className="bg-[#00FF00]/10 text-[#00FF00] hover:bg-[#00FF00]/20 border border-[#00FF00]/30 whitespace-nowrap h-11 min-w-[130px]"
+                className="text-[#00FF00] hover:bg-[#00FF00]/10 hover:text-[#00FF00] border border-dashed border-[#00FF00]/30 whitespace-nowrap h-11 min-w-[130px] transition-colors duration-200"
               >
                 <Flag className="mr-2 h-4 w-4" />
                 Submit Flag
@@ -814,9 +795,9 @@ export default function BeginnerCTFLab() {
             </div>
             
             {errorMessage && !stepStatus[3] && (
-              <Alert className="mt-4 bg-red-900/20 border-red-500 text-red-400">
+              <Alert className="mt-4 bg-red-900/20 border-dashed border-red-500 text-red-400">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
+                <AlertTitle>Code Analysis Failed</AlertTitle>
                 <AlertDescription>
                   {errorMessage}
                 </AlertDescription>
@@ -824,21 +805,23 @@ export default function BeginnerCTFLab() {
             )}
             
             {stepStatus[3] && (
-              <Alert className="mt-4 bg-green-900/20 border-green-500 text-green-400">
+              <Alert className="mt-4 bg-green-900/20 border-dashed border-green-500 text-green-400">
                 <CheckCircle2 className="h-4 w-4" />
-                <AlertTitle>Challenge Completed!</AlertTitle>
+                <AlertTitle>Analysis Successful!</AlertTitle>
                 <AlertDescription>
-                  Congratulations! You've successfully analyzed the JavaScript code to extract the flag. Code analysis is a fundamental skill in cybersecurity.
+                  Outstanding code analysis! You've successfully reverse-engineered the JavaScript function and determined its output. This ability to read and understand code is critical for identifying vulnerabilities, analyzing malware, and understanding how systems can be exploited or protected.
                 </AlertDescription>
               </Alert>
             )}
             
             {attempts > 2 && showHint && !stepStatus[3] && (
-              <Alert className="mt-4 bg-blue-900/20 border-blue-500 text-blue-400">
+              <Alert className="mt-4 bg-blue-900/20 border-dashed border-blue-500 text-blue-400">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Hint:</AlertTitle>
+                <AlertTitle>Code Analysis Hint:</AlertTitle>
                 <AlertDescription>
-                  The part2 array contains ASCII character codes. Convert them to characters (part2 spells "javascript" when converted). The complete flag will be part1 + part2 (converted) + part3 + part4 + part5.
+                  <p>Focus on the part2 array. Each number in the array is an ASCII code that represents a character.</p>
+                  <p className="mt-1">The <code>String.fromCharCode()</code> method converts these ASCII codes to characters.</p>
+                  <p className="mt-1">Try working out what word the ASCII codes in part2 represent, then see how all five parts combine to form the flag.</p>
                 </AlertDescription>
               </Alert>
             )}
@@ -855,9 +838,9 @@ export default function BeginnerCTFLab() {
         <div className="flex items-center justify-between p-3 bg-gradient-to-r from-black to-[#00FF00]/10 border-b border-[#00FF00]/30">
           <div className="flex items-center">
             <Button 
+              variant="ghost"
+              className="text-[#00FF00] hover:bg-[#00FF00]/10 hover:text-[#00FF00] border border-dashed border-[#00FF00]/30 mr-4 transition-colors duration-200"
               onClick={() => router.push('/cyber-labs')}
-              variant="outline"
-              className="text-[#00FF00] mr-4 border-[#00FF00]/40 hover:bg-[#00FF00]/10 button-hover-slide"
             >
               <ChevronLeft className="mr-2 h-4 w-4" />
               Back
@@ -901,14 +884,14 @@ export default function BeginnerCTFLab() {
           transition={{ duration: 0.5 }}
           className="mb-8"
         >
-          <Alert className="bg-green-900/20 border-green-500 hover-glow">
+          <Alert className="bg-green-900/20 border-dashed border-green-500 hover-glow">
             <div className="flex items-start">
               <Trophy className="h-12 w-12 text-yellow-400 mr-6 flex-shrink-0 mt-1 pulse-animation" />
               <div>
                 <AlertTitle className="text-2xl font-bold text-white mb-2 glitch-effect" data-text="Challenge Complete!">Challenge Complete!</AlertTitle>
                 <AlertDescription className="text-gray-300">
                   <p className="mb-4 text-lg">You've successfully completed all challenges in the Beginner CTF Lab! 🎉</p>
-                  <div className="p-4 bg-black/40 rounded-lg border border-green-500/30 mb-4 scanner-animation">
+                  <div className="p-4 bg-black/80 rounded-lg border border-dashed border-green-500/30 mb-4 scanner-animation">
                     <p className="font-medium text-white mb-2">Skills Demonstrated:</p>
                     <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 pl-5 list-disc marker:text-[#00FF00]">
                       <li className="hover:text-[#00FF00] transition-colors duration-300">Web inspection and HTML analysis</li>
@@ -919,8 +902,8 @@ export default function BeginnerCTFLab() {
                   </div>
                   <div className="flex justify-center mt-6">
                     <Link href="/cyber-labs">
-                      <Button className="bg-[#00FF00]/20 text-[#00FF00] hover:bg-[#00FF00]/30 px-8 py-6 text-lg button-hover-slide">
-                        <Trophy className="mr-2 h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
+                      <Button className="text-[#00FF00] hover:bg-[#00FF00]/10 hover:text-[#00FF00] hover:border-[#00FF00]/40 border border-dashed border-[#00FF00]/30 px-8 py-6 text-lg transition-colors duration-200">
+                        <Trophy className="mr-2 h-5 w-5" />
                         Return to Labs
                       </Button>
                     </Link>
@@ -937,7 +920,7 @@ export default function BeginnerCTFLab() {
         {/* Sidebar with lab information and progress */}
         <div className="lg:col-span-3">
           <div className="sticky top-4">
-            <Card className="bg-black border border-gray-800 overflow-hidden mb-4 card-hover hover-glow">
+            <Card className="bg-black border border-dashed border-gray-800 overflow-hidden mb-4 card-hover hover-glow">
               <CardHeader className="bg-gradient-to-r from-black to-[#00FF00]/5 border-b border-gray-800">
                 <CardTitle className="text-xl text-white flex items-center">
                   <Flag className="mr-2 h-5 w-5 text-[#00FF00]"/>
@@ -997,7 +980,7 @@ export default function BeginnerCTFLab() {
               </CardContent>
             </Card>
             
-            <Card className="bg-black border border-gray-800 overflow-hidden card-hover hover-glow">
+            <Card className="bg-black border border-dashed border-gray-800 overflow-hidden card-hover hover-glow">
               <CardHeader className="bg-gradient-to-r from-black to-[#00FF00]/5 border-b border-gray-800">
                 <CardTitle className="text-xl text-white flex items-center">
                   <FileCode2 className="mr-2 h-5 w-5 text-[#00FF00]"/>
@@ -1041,7 +1024,7 @@ export default function BeginnerCTFLab() {
         
         {/* Main content area for lab */}
         <div className="lg:col-span-9">
-          <Card className="bg-black border border-gray-800 overflow-hidden hover-glow">
+          <Card className="bg-black border border-dashed border-gray-800 overflow-hidden hover-glow">
             <CardHeader className="bg-gradient-to-r from-black to-[#00FF00]/5 border-b border-gray-800 flex flex-row justify-between items-center">
               <CardTitle className="text-xl text-white flex items-center">
                 <span className="h-6 w-6 rounded-full bg-[#00FF00]/20 flex items-center justify-center mr-3 flex-shrink-0 pulse-animation">
@@ -1054,13 +1037,13 @@ export default function BeginnerCTFLab() {
                 <span>LIVE</span>
               </div>
             </CardHeader>
-            <CardContent className="p-6 scanner-animation bg-opacity-5">
+            <CardContent className="p-6 scanner-animation bg-black bg-opacity-5">
               {LAB_STEPS[currentStep].content}
             </CardContent>
-            <CardFooter className="border-t border-gray-800 px-6 py-4 flex justify-between items-center bg-gradient-to-r from-[#00FF00]/5 to-transparent">
+            <CardFooter className="border-t border-dashed border-gray-800 px-6 py-4 flex justify-between items-center bg-gradient-to-r from-[#00FF00]/5 to-transparent">
               <Button 
-                variant="outline" 
-                className="text-gray-400 border-gray-700 hover:bg-gray-800 hover:text-white transition-all duration-300 button-hover-slide"
+                variant="ghost" 
+                className="text-gray-400 hover:bg-[#00FF00]/5 hover:text-[#00FF00] hover:border-[#00FF00]/30 border border-dashed border-gray-700 transition-colors duration-200"
                 onClick={() => {
                   setCurrentStep(Math.max(0, currentStep - 1))
                   setUserInput("")
@@ -1070,12 +1053,22 @@ export default function BeginnerCTFLab() {
                 }}
                 disabled={currentStep === 0}
               >
-                <ChevronLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" />
+                <ChevronLeft className="mr-2 h-4 w-4" />
                 Previous Challenge
               </Button>
               
               <Button 
-                className="bg-[#00FF00]/10 text-[#00FF00] hover:bg-[#00FF00]/20 border border-[#00FF00]/30 transition-all duration-300 button-hover-slide"
+                variant="ghost"
+                className="text-amber-400 hover:bg-amber-900/10 hover:border-amber-500/40 border border-dashed border-amber-700/30 mx-2 transition-colors duration-200"
+                onClick={() => router.push('/cyber-labs/solutions/beginner-ctf')}
+              >
+                <Key className="mr-2 h-4 w-4" />
+                View Solution
+              </Button>
+              
+              <Button 
+                variant="ghost"
+                className="text-[#00FF00] hover:bg-[#00FF00]/10 hover:text-[#00FF00] hover:border-[#00FF00]/40 border border-dashed border-[#00FF00]/30 transition-colors duration-200"
                 onClick={() => {
                   if (currentStep < LAB_STEPS.length - 1) {
                     setCurrentStep(currentStep + 1)
@@ -1092,12 +1085,12 @@ export default function BeginnerCTFLab() {
                 {currentStep < LAB_STEPS.length - 1 ? (
                   <>
                     Next Challenge
-                    <ChevronLeft className="ml-2 h-4 w-4 rotate-180 transition-transform group-hover:translate-x-1" />
+                    <ChevronLeft className="ml-2 h-4 w-4 rotate-180" />
                   </>
                 ) : (
                   <>
                     Complete Lab
-                    <Trophy className="ml-2 h-4 w-4 transition-transform group-hover:scale-110" />
+                    <Trophy className="ml-2 h-4 w-4" />
                   </>
                 )}
               </Button>
