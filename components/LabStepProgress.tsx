@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/lib/providers/auth-provider';
+import { ProgressClient } from '@/lib/services/progress-service';
+import { usePathname } from 'next/navigation';
+import { toast } from 'sonner';
 
 interface LabStepProgressProps {
   labId: string;
@@ -22,15 +25,53 @@ export function LabStepProgress({
 }: LabStepProgressProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const pathname = usePathname();
   
   const handleComplete = async () => {
-    if (isCompleted || !user || loading) return;
+    if (isCompleted || loading) return;
     
     setLoading(true);
+    
     try {
-      onStepComplete();
+      console.log(`LabStepProgress - Starting completion process for step: ${stepId}`);
+      
+      // First try to update the step directly from this component to ensure it's saved
+      if (user) {
+        console.log(`User is authenticated. Updating step progress...`);
+        const result = await ProgressClient.updateStepProgress(
+          labId,
+          stepId,
+          title,
+          true
+        );
+        
+        if (result) {
+          console.log(`Step progress successfully updated: ${JSON.stringify(result)}`);
+          
+          // Then call the parent component's handler
+          onStepComplete();
+          
+          // Show success toast
+          toast.success("Step completed! Your progress has been saved.", {
+            position: "bottom-right"
+          });
+        } else {
+          console.error("Failed to update step progress - received null result");
+          toast.error("Failed to save your progress. Please try again.", {
+            position: "bottom-right"
+          });
+        }
+      } else {
+        console.error("User not authenticated, cannot save progress");
+        toast.error("You must be logged in to save progress", {
+          position: "bottom-right"
+        });
+      }
     } catch (error) {
       console.error("Error completing step:", error);
+      toast.error("An error occurred while saving your progress", {
+        position: "bottom-right"
+      });
     } finally {
       setLoading(false);
     }
@@ -45,7 +86,7 @@ export function LabStepProgress({
         <Button 
           variant="outline"
           className="w-full sm:w-auto border-gray-700 hover:border-[#00FF00]/50 hover:bg-[#00FF00]/10 text-gray-300 hover:text-[#00FF00]"
-          onClick={() => window.location.href = "/signin"}
+          onClick={() => window.location.href = `/login?next=${encodeURIComponent(pathname)}`}
         >
           Sign In
           <ChevronRight className="ml-2 h-4 w-4" />

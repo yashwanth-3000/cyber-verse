@@ -25,7 +25,7 @@ export function UserProgressDashboard() {
         setLoading(true);
         const [progressSummary, progressData] = await Promise.all([
           ProgressClient.getUserProgressSummary(),
-          ProgressClient.getUserLabProgress()
+          ProgressClient.getAllLabsProgress()
         ]);
         
         setSummary(progressSummary);
@@ -45,14 +45,12 @@ export function UserProgressDashboard() {
     if (!loading && !summary && user) {
       // Create a default summary for users with no data yet
       setSummary({
-        user_id: user.id,
-        email: user.email || '',
-        full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+        total_labs: 0,
         completed_labs: 0,
         in_progress_labs: 0,
-        total_labs_attempted: 0,
-        achievements_earned: 0,
-        last_active_at: new Date().toISOString()
+        completion_percentage: 0,
+        last_activity_at: new Date().toISOString(),
+        earned_points: 0
       });
     }
   }, [loading, summary, user]);
@@ -131,9 +129,9 @@ export function UserProgressDashboard() {
           <CardContent className="flex items-center">
             <Trophy className="h-8 w-8 text-amber-500 mr-4" />
             <div>
-              <div className="text-2xl font-bold text-white">{summary.achievements_earned}</div>
+              <div className="text-2xl font-bold text-white">{0}</div>
               <p className="text-xs text-gray-500">
-                {summary.achievements_earned === 0 ? 'Complete labs to earn achievements' : 'Achievements earned'}
+                Complete labs to earn achievements
               </p>
             </div>
           </CardContent>
@@ -148,7 +146,7 @@ export function UserProgressDashboard() {
             <Clock className="h-8 w-8 text-blue-400 mr-4" />
             <div>
               <div className="text-lg font-medium text-white">
-                {formatDistanceToNow(new Date(summary.last_active_at), { addSuffix: true })}
+                {formatDistanceToNow(new Date(summary.last_activity_at), { addSuffix: true })}
               </div>
             </div>
           </CardContent>

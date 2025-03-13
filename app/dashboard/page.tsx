@@ -21,8 +21,6 @@ import {
   Shield, 
   Activity,
   ChevronRight,
-  Heart,
-  BookMarked,
   GraduationCap,
   Terminal
 } from "lucide-react"
@@ -38,12 +36,11 @@ export default function Dashboard() {
   const [progressSummary, setProgressSummary] = useState<any>(null)
   const [labsProgress, setLabsProgress] = useState<any[]>([])
   const [userAchievements, setUserAchievements] = useState<any[]>([])
-  const [userResources, setUserResources] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState("overview")
 
   useEffect(() => {
     if (!user) {
-      router.push("/signin")
+      router.push("/login?next=/dashboard")
       return
     }
 
@@ -60,35 +57,9 @@ export default function Dashboard() {
         // Load achievements
         const achievements = await ProgressClient.getUserAchievements()
         
-        // Mock user resources since we haven't implemented that yet
-        const mockResources = [
-          { 
-            id: '1', 
-            title: 'XSS Prevention Cheatsheet', 
-            type: 'cheatsheet',
-            added_at: new Date().toISOString(),
-            tags: ['web-security', 'xss']
-          },
-          { 
-            id: '2', 
-            title: 'OWASP Top 10 Guide', 
-            type: 'guide',
-            added_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-            tags: ['owasp', 'web-security']
-          },
-          { 
-            id: '3', 
-            title: 'Network Scanning Tools', 
-            type: 'tools',
-            added_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-            tags: ['network', 'scanning']
-          }
-        ]
-        
         setProgressSummary(summary)
         setLabsProgress(labs)
         setUserAchievements(achievements)
-        setUserResources(mockResources)
       } catch (error) {
         console.error("Error loading dashboard data:", error)
       } finally {
@@ -133,7 +104,7 @@ export default function Dashboard() {
       {/* Hero section */}
       <div className="bg-gradient-to-b from-black via-[#00FF00]/10 to-black py-10 mb-8">
         <div className="container mx-auto px-4">
-          <motion.div
+        <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
@@ -151,10 +122,10 @@ export default function Dashboard() {
               </motion.span>
             </h1>
             <p className="text-gray-400 mb-8">
-              Track your progress, manage resources, and continue your cybersecurity journey
+              Track your progress and continue your cybersecurity journey
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Overall Progress Card */}
               <Card className="bg-gray-900/40 border-gray-800">
                 <CardHeader className="pb-2">
@@ -208,24 +179,6 @@ export default function Dashboard() {
                   </p>
                 </CardContent>
               </Card>
-
-              {/* Resources Card */}
-              <Card className="bg-gray-900/40 border-gray-800">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-md text-gray-300 flex items-center">
-                    <BookMarked className="h-4 w-4 text-[#00FF00] mr-2" />
-                    Resources Saved
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-white">
-                    {userResources?.length || 0}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {userResources?.length ? 'Resources in your collection' : 'Add resources to your collection'}
-                  </p>
-                </CardContent>
-              </Card>
             </div>
           </motion.div>
         </div>
@@ -246,12 +199,6 @@ export default function Dashboard() {
               className="data-[state=active]:bg-[#00FF00]/10 data-[state=active]:text-[#00FF00] data-[state=active]:border-[#00FF00]/30"
             >
               Labs Progress
-            </TabsTrigger>
-            <TabsTrigger 
-              value="resources" 
-              className="data-[state=active]:bg-[#00FF00]/10 data-[state=active]:text-[#00FF00] data-[state=active]:border-[#00FF00]/30"
-            >
-              Resources
             </TabsTrigger>
             <TabsTrigger 
               value="achievements" 
@@ -304,7 +251,7 @@ export default function Dashboard() {
                         >
                           Explore Labs
                         </Button>
-                      </div>
+                </div>
                     )}
                   </CardContent>
                   <CardFooter>
@@ -344,26 +291,6 @@ export default function Dashboard() {
                           onClick={() => router.push('/cyber-labs/xss-playground')}
                         >
                           Continue
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-black/30 border border-gray-800 rounded-md hover:bg-black/50 transition-colors">
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center">
-                          <BookOpen className="text-blue-400 h-5 w-5 mr-2" />
-                          <div>
-                            <p className="font-medium text-gray-200">Read OWASP Guide</p>
-                            <p className="text-xs text-gray-400">Recommended resource</p>
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-gray-700 text-gray-300 h-8"
-                          onClick={() => router.push('/resources')}
-                        >
-                          View
                         </Button>
                       </div>
                     </div>
@@ -452,8 +379,8 @@ export default function Dashboard() {
                       </Button>
                     </CardFooter>
                   </Card>
-                ))}
-              </div>
+                  ))}
+                </div>
             ) : (
               <Card className="bg-gray-900/40 border-gray-800 text-center p-8">
                 <Shield className="h-16 w-16 text-gray-700 mx-auto mb-4" />
@@ -465,73 +392,6 @@ export default function Dashboard() {
                 >
                   <Shield className="mr-2 h-4 w-4" />
                   Browse Labs
-                </Button>
-              </Card>
-            )}
-          </TabsContent>
-
-          {/* Resources Tab */}
-          <TabsContent value="resources" className="space-y-6">
-            <div className="flex justify-between items-center mb-2">
-              <h2 className="text-2xl font-bold text-white">Your Saved Resources</h2>
-              <Button 
-                className="bg-[#00FF00] text-black hover:bg-[#00FF00]/90"
-                onClick={() => router.push('/resources')}
-              >
-                <BookMarked className="mr-2 h-4 w-4" />
-                Browse Resources
-              </Button>
-            </div>
-            
-            {userResources && userResources.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {userResources.map((resource) => (
-                  <Card key={resource.id} className="bg-gray-900/40 border-gray-800">
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg text-white">{resource.title}</CardTitle>
-                        <div className="bg-gray-800 text-gray-300 text-xs font-medium px-2 py-1 rounded-full">
-                          {resource.type}
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="py-2">
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {resource.tags.map((tag: string) => (
-                          <span key={tag} className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex items-center text-gray-400 text-xs mt-3">
-                        <Clock className="h-3.5 w-3.5 mr-1" />
-                        <span>Added: {new Date(resource.added_at).toLocaleDateString()}</span>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="pt-2">
-                      <Button
-                        variant="ghost"
-                        className="w-full text-[#00FF00] hover:bg-[#00FF00]/10 border border-dashed border-[#00FF00]/30"
-                        onClick={() => router.push(`/resources/${resource.id}`)}
-                      >
-                        View Resource
-                        <ChevronRight className="h-4 w-4 ml-2" />
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card className="bg-gray-900/40 border-gray-800 text-center p-8">
-                <BookOpen className="h-16 w-16 text-gray-700 mx-auto mb-4" />
-                <CardTitle className="text-xl text-white mb-2">No Saved Resources</CardTitle>
-                <CardDescription className="text-gray-400 mb-6">Save resources to your collection for quick access</CardDescription>
-                <Button 
-                  className="bg-[#00FF00] text-black hover:bg-[#00FF00]/90"
-                  onClick={() => router.push('/resources')}
-                >
-                  <BookMarked className="mr-2 h-4 w-4" />
-                  Browse Resources
                 </Button>
               </Card>
             )}
@@ -585,7 +445,7 @@ export default function Dashboard() {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+                </div>
   )
 }
 

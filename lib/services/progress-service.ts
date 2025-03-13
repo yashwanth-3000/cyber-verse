@@ -1,9 +1,25 @@
 import { createClient } from "@supabase/supabase-js";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 
-// Initialize Supabase client
+// Initialize Supabase client - handles both server and browser environments
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Function to get the appropriate Supabase client based on environment
+const getSupabaseClient = () => {
+  // In browser environments, use the browser client to ensure consistent auth
+  if (typeof window !== 'undefined') {
+    return createSupabaseBrowserClient();
+  }
+  
+  // In server environments, use a direct client
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
+    }
+  });
+};
 
 // Define types for progress tracking
 export interface UserProgressSummary {
@@ -52,9 +68,16 @@ export class ProgressClient {
   // Get user progress summary
   static async getUserProgressSummary(): Promise<UserProgressSummary | null> {
     try {
+      const supabase = getSupabaseClient();
+      
       // Ensure user is logged in
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      if (!user) {
+        console.error("User not logged in - cannot get user progress summary");
+        return null;
+      }
+      
+      console.log("Authenticated user for summary:", user.id);
       
       // Get progress summary from the database
       const { data, error } = await supabase
@@ -87,9 +110,16 @@ export class ProgressClient {
   // Get all lab progress for a user
   static async getAllLabsProgress(): Promise<LabProgress[]> {
     try {
+      const supabase = getSupabaseClient();
+      
       // Ensure user is logged in
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
+      if (!user) {
+        console.error("User not logged in - cannot get all labs progress");
+        return [];
+      }
+      
+      console.log("Authenticated user for all labs:", user.id);
       
       // Get all labs progress
       const { data, error } = await supabase
@@ -109,9 +139,16 @@ export class ProgressClient {
   // Get progress for a specific lab
   static async getLabProgress(labId: string): Promise<LabProgress | null> {
     try {
+      const supabase = getSupabaseClient();
+      
       // Ensure user is logged in
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      if (!user) {
+        console.error("User not logged in - cannot get lab progress");
+        return null;
+      }
+      
+      console.log("Authenticated user for lab progress:", user.id);
       
       // Get lab progress
       const { data, error } = await supabase
@@ -135,9 +172,16 @@ export class ProgressClient {
   // Start a lab (create progress entry)
   static async startLab(labId: string): Promise<LabProgress | null> {
     try {
+      const supabase = getSupabaseClient();
+      
       // Ensure user is logged in
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      if (!user) {
+        console.error("User not logged in - cannot start lab");
+        return null;
+      }
+      
+      console.log("Authenticated user for starting lab:", user.id);
       
       // Check if progress already exists
       const existingProgress = await this.getLabProgress(labId);
@@ -179,34 +223,103 @@ export class ProgressClient {
   // Complete a lab
   static async completeLab(labId: string): Promise<LabProgress | null> {
     try {
-      // Ensure user is logged in
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      console.log(`===== COMPLETING LAB =====`);
+      console.log(`Lab ID: ${labId}`);
       
-      // Update lab progress
+      const supabase = getSupabaseClient();
+      
+      // Verify parameter
+      if (!labId) {
+        console.error("Invalid lab ID for completeLab");
+        return null;
+      }
+      
+      // Ensure user is logged in
+      const authResponse = await supabase.auth.getUser();
+      if (!authResponse.data?.user) {
+        console.error("User not logged in - cannot complete lab");
+        return null;
+      }
+      
+      const user = authResponse.data.user;
+      console.log(`Authenticated User ID: ${user.id}`);
+      
+      // Get lab progress
+      const labProgress = await this.getLabProgress(labId);
+      if (!labProgress) {
+        console.error(`No lab progress found for lab ${labId}`);
+        const newProgress = await this.startLab(labId);
+        if (!newProgress) {
+          console.error("Failed to create new lab progress");
+          return null;
+        }
+        console.log(`Created new lab progress: ${newProgress.id}`);
+      }
+      
+      // Get all steps for this lab
+      const stepProgress = await this.getLabStepProgress(labId);
+      console.log(`Found ${stepProgress.length} steps for lab ${labId}`);
+      
+      if (stepProgress.length === 0) {
+        console.error("No steps found for lab, cannot calculate completion");
+        return null;
+      }
+      
+      // Calculate completion
+      const totalSteps = stepProgress.length;
+      const completedSteps = stepProgress.filter((step: LabStepProgress) => step.is_completed).length;
+      const completionPercentage = Math.round((completedSteps / totalSteps) * 100);
+      
+      console.log(`Completion calculation: ${completedSteps}/${totalSteps} steps completed (${completionPercentage}%)`);
+      
+      // Update lab progress as completed
       const now = new Date().toISOString();
+      const updates = {
+        status: 'completed',
+        is_completed: true,
+        completed_at: now,
+        updated_at: now,
+        completion_percentage: completionPercentage,
+        total_steps: totalSteps,
+        completed_steps: completedSteps
+      };
+      
+      console.log(`Updating lab progress with completion status`);
+      
+      // Update the lab progress
       const { data, error } = await supabase
         .from('lab_progress')
-        .update({
-          status: 'completed',
-          completed_at: now,
-          updated_at: now,
-          completion_percentage: 100,
-          is_completed: true
-        })
+        .update(updates)
         .eq('user_id', user.id)
         .eq('lab_id', labId)
-        .select()
-        .single();
+        .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error updating lab progress:", error);
+        console.error("Error details:", error.details, error.hint, error.code);
+        return null;
+      }
+      
+      if (!data || data.length === 0) {
+        console.error("No data returned after updating lab progress");
+        return null;
+      }
+      
+      const result = data[0];
+      console.log(`Updated lab progress with completion status: ${result.id}`);
       
       // Update user progress summary
+      console.log("Updating user progress summary with completed lab");
       await this.updateUserProgressSummary();
       
-      return data;
+      return result;
     } catch (error) {
       console.error('Error completing lab:', error);
+      // Add more detailed error information
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
       return null;
     }
   }
@@ -214,9 +327,16 @@ export class ProgressClient {
   // Get step progress for a lab
   static async getLabStepProgress(labId: string): Promise<LabStepProgress[]> {
     try {
+      const supabase = getSupabaseClient();
+      
       // Ensure user is logged in
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
+      if (!user) {
+        console.error("User not logged in - cannot get step progress");
+        return [];
+      }
+      
+      console.log("Authenticated user for step progress:", user.id);
       
       // Get step progress
       const { data, error } = await supabase
@@ -242,25 +362,72 @@ export class ProgressClient {
     isCompleted: boolean
   ): Promise<LabStepProgress | null> {
     try {
+      console.log(`===== UPDATING STEP PROGRESS =====`);
+      console.log(`Lab ID: ${labId}`);
+      console.log(`Step ID: ${stepId}`);
+      console.log(`Step Title: ${stepTitle}`);
+      console.log(`Is Completed: ${isCompleted}`);
+      
+      const supabase = getSupabaseClient();
+      
+      // Verify parameters are valid
+      if (!labId || !stepId || !stepTitle) {
+        console.error("Invalid parameters for updateStepProgress:", { labId, stepId, stepTitle });
+        return null;
+      }
+      
       // Ensure user is logged in
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      const authResponse = await supabase.auth.getUser();
+      console.log("Auth response:", authResponse);
+      
+      if (!authResponse.data?.user) {
+        console.error("User not logged in - cannot update step progress");
+        return null;
+      }
+      
+      const user = authResponse.data.user;
+      console.log(`Authenticated User ID: ${user.id}`);
+      
+      // First ensure the lab progress entry exists
+      console.log(`Checking if lab progress exists for lab ${labId}`);
+      const labProgress = await this.getLabProgress(labId);
+      
+      if (!labProgress) {
+        console.log(`No lab progress found, starting lab ${labId}`);
+        const newLabProgress = await this.startLab(labId);
+        if (!newLabProgress) {
+          console.error(`Failed to create lab progress for lab ${labId}`);
+          return null;
+        }
+        console.log(`Created new lab progress entry: ${newLabProgress.id}`);
+      } else {
+        console.log(`Found existing lab progress: ${labProgress.id}`);
+      }
       
       const now = new Date().toISOString();
       
       // Check if step progress exists
-      const { data: existingStep, error: checkError } = await supabase
+      console.log(`Checking if step progress exists for step ${stepId}`);
+      const { data: existingSteps, error: queryError } = await supabase
         .from('lab_step_progress')
         .select('*')
         .eq('user_id', user.id)
         .eq('lab_id', labId)
-        .eq('step_id', stepId)
-        .single();
+        .eq('step_id', stepId);
+      
+      if (queryError) {
+        console.error("Error querying step progress:", queryError);
+        return null;
+      }
+      
+      const existingStep = existingSteps && existingSteps.length > 0 ? existingSteps[0] : null;
+      console.log(`Step exists: ${!!existingStep}`);
       
       let result;
       
       if (!existingStep) {
         // Create new step progress
+        console.log(`Creating new step progress record for step ${stepId}`);
         const newStep = {
           user_id: user.id,
           lab_id: labId,
@@ -270,36 +437,72 @@ export class ProgressClient {
           completed_at: isCompleted ? now : null
         };
         
+        console.log(`New step data:`, newStep);
+        
+        // Use upsert instead of insert to avoid potential race conditions
         const { data, error } = await supabase
           .from('lab_step_progress')
-          .insert([newStep])
-          .select()
-          .single();
+          .upsert([newStep], { onConflict: 'user_id,lab_id,step_id' })
+          .select();
         
-        if (error) throw error;
-        result = data;
+        if (error) {
+          console.error("Error inserting step progress:", error);
+          console.error("Error details:", error.details, error.hint, error.code);
+          return null;
+        }
+        
+        if (!data || data.length === 0) {
+          console.error("No data returned after inserting step progress");
+          return null;
+        }
+        
+        result = data[0];
+        console.log(`Created step progress record with ID: ${result.id}`);
       } else {
-        // Update existing step progress
-        const { data, error } = await supabase
-          .from('lab_step_progress')
-          .update({
-            is_completed: isCompleted,
-            completed_at: isCompleted ? now : null
-          })
-          .eq('id', existingStep.id)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        result = data;
+        // Only update if not already completed
+        if (!existingStep.is_completed && isCompleted) {
+          // Update existing step progress
+          console.log(`Updating existing step progress record for step ${stepId}`);
+          const { data, error } = await supabase
+            .from('lab_step_progress')
+            .update({
+              is_completed: isCompleted,
+              completed_at: isCompleted ? now : null
+            })
+            .eq('id', existingStep.id)
+            .select();
+          
+          if (error) {
+            console.error("Error updating step progress:", error);
+            console.error("Error details:", error.details, error.hint, error.code);
+            return null;
+          }
+          
+          if (!data || data.length === 0) {
+            console.error("No data returned after updating step progress");
+            return null;
+          }
+          
+          result = data[0];
+          console.log(`Updated step progress record with ID: ${result.id}`);
+        } else {
+          console.log(`Step ${stepId} is already ${existingStep.is_completed ? 'completed' : 'not completed'}, not updating`);
+          result = existingStep;
+        }
       }
       
-      // Update lab progress
+      // Update lab progress summary
+      console.log("Updating lab progress with step changes");
       await this.updateLabProgress(labId);
       
       return result;
     } catch (error) {
       console.error('Error updating step progress:', error);
+      // Add more detailed error information
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
       return null;
     }
   }
@@ -307,30 +510,47 @@ export class ProgressClient {
   // Update lab progress based on completed steps
   private static async updateLabProgress(labId: string): Promise<void> {
     try {
+      const supabase = getSupabaseClient();
+      
       // Ensure user is logged in
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.error("User not logged in - cannot update lab progress");
+        return;
+      }
       
       // Get all steps for this lab
+      console.log(`Getting all step progress for lab ${labId}`);
       const { data: steps, error: stepsError } = await supabase
         .from('lab_step_progress')
         .select('*')
         .eq('user_id', user.id)
         .eq('lab_id', labId);
       
-      if (stepsError) throw stepsError;
+      if (stepsError) {
+        console.error("Error getting lab steps:", stepsError);
+        throw stepsError;
+      }
       
-      if (!steps || steps.length === 0) return;
+      console.log(`Found ${steps?.length || 0} steps for lab ${labId}`);
+      
+      if (!steps || steps.length === 0) {
+        console.log("No steps found, skipping lab progress update");
+        return;
+      }
       
       // Calculate progress
       const totalSteps = steps.length;
-      const completedSteps = steps.filter(step => step.is_completed).length;
+      const completedSteps = steps.filter((step: LabStepProgress) => step.is_completed).length;
       const completionPercentage = Math.round((completedSteps / totalSteps) * 100);
-      const isCompleted = completionPercentage === 100;
+      const isCompleted = completedSteps > 0 && completedSteps === totalSteps;
+      
+      console.log(`Lab progress calculation: ${completedSteps}/${totalSteps} steps completed (${completionPercentage}%)`);
+      console.log(`Is lab completed: ${isCompleted}`);
       
       // Update lab progress
       const now = new Date().toISOString();
-      const updates = {
+      const updates: any = {
         updated_at: now,
         total_steps: totalSteps,
         completed_steps: completedSteps,
@@ -341,17 +561,24 @@ export class ProgressClient {
       
       // If lab is completed and wasn't before, set completed_at
       if (isCompleted) {
-        const { data: currentProgress } = await supabase
+        const { data: currentProgress, error: progressError } = await supabase
           .from('lab_progress')
           .select('is_completed')
           .eq('user_id', user.id)
           .eq('lab_id', labId)
           .single();
         
-        if (currentProgress && !currentProgress.is_completed) {
-          Object.assign(updates, { completed_at: now });
+        if (progressError) {
+          console.error("Error checking current lab progress:", progressError);
+        }
+        
+        if (!currentProgress || !currentProgress.is_completed) {
+          console.log("Lab newly completed, setting completed_at timestamp");
+          updates.completed_at = now;
         }
       }
+      
+      console.log(`Updating lab_progress for lab ${labId} with:`, updates);
       
       const { error: updateError } = await supabase
         .from('lab_progress')
@@ -359,7 +586,12 @@ export class ProgressClient {
         .eq('user_id', user.id)
         .eq('lab_id', labId);
       
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("Error updating lab progress:", updateError);
+        throw updateError;
+      }
+      
+      console.log(`Lab progress updated successfully for ${labId}`);
       
       // Update user progress summary
       await this.updateUserProgressSummary();
@@ -371,6 +603,8 @@ export class ProgressClient {
   // Update user progress summary
   private static async updateUserProgressSummary(): Promise<void> {
     try {
+      const supabase = getSupabaseClient();
+      
       // Ensure user is logged in
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -387,8 +621,8 @@ export class ProgressClient {
       
       // Calculate summary
       const totalLabs = labsProgress.length;
-      const completedLabs = labsProgress.filter(lab => lab.is_completed).length;
-      const inProgressLabs = labsProgress.filter(lab => !lab.is_completed && lab.completion_percentage > 0).length;
+      const completedLabs = labsProgress.filter((lab: LabProgress) => lab.is_completed).length;
+      const inProgressLabs = labsProgress.filter((lab: LabProgress) => !lab.is_completed && lab.completion_percentage > 0).length;
       const completionPercentage = Math.round((completedLabs / totalLabs) * 100);
       const now = new Date().toISOString();
       
@@ -445,6 +679,8 @@ export class ProgressClient {
   // Get user achievements
   static async getUserAchievements(): Promise<Achievement[]> {
     try {
+      const supabase = getSupabaseClient();
+      
       // Ensure user is logged in
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
@@ -467,6 +703,8 @@ export class ProgressClient {
   // Award an achievement
   static async awardAchievement(name: string, description: string, icon: string): Promise<Achievement | null> {
     try {
+      const supabase = getSupabaseClient();
+      
       // Ensure user is logged in
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;

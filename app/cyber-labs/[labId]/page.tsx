@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import Link from "next/link"
@@ -316,6 +316,7 @@ export default function LabPage() {
   const [solution, setSolution] = useState("")
   const [validationResult, setValidationResult] = useState<{ success: boolean; message: string } | null>(null)
   const [completedSteps, setCompletedSteps] = useState<string[]>([])
+  const [submittingFlag, setSubmittingFlag] = useState(false)
   
   useEffect(() => {
     // Find the lab data based on the URL parameter
@@ -345,35 +346,72 @@ export default function LabPage() {
     loadCompletedSteps();
   }, [params.labId, router, user]);
   
-  const handleStepComplete = async (stepId: string) => {
+  const handleStepComplete = useCallback(async (stepId: string) => {
+    console.log(`Lab page - handleStepComplete called for step: ${stepId}`);
+    
     // Don't mark as completed if already completed
-    if (completedSteps.includes(stepId)) return;
+    if (completedSteps.includes(stepId)) {
+      console.log(`Step ${stepId} is already completed, skipping`);
+      return;
+    }
     
     // Add to completed steps locally
     setCompletedSteps(prev => [...prev, stepId]);
+    console.log(`Added step ${stepId} to completed steps locally`);
     
-    // Update step progress in database if user is logged in
+    // This will be called if LabStepProgress component's direct update fails
+    // It's a backup method for updating step progress
     if (user && lab) {
       try {
-        const stepIndex = lab.steps.findIndex((s: any) => s.name.toLowerCase().replace(/\s+/g, '-') === stepId);
-        const stepTitle = stepIndex >= 0 ? lab.steps[stepIndex].name : stepId;
+        console.log(`Lab page - Backup method: saving step progress for step ${stepId}`);
         
-        await ProgressClient.updateStepProgress(
+        const stepIndex = lab.steps.findIndex((s: any) => {
+          const normalizedStepId = s.name.toLowerCase().replace(/\s+/g, '-');
+          console.log(`Comparing step name "${s.name}" (${normalizedStepId}) with stepId "${stepId}"`);
+          return normalizedStepId === stepId;
+        });
+        
+        if (stepIndex === -1) {
+          console.error(`Could not find step with ID ${stepId} in lab steps`);
+        }
+        
+        const stepTitle = stepIndex >= 0 ? lab.steps[stepIndex].name : stepId;
+        console.log(`Found step title: "${stepTitle}" at index ${stepIndex}`);
+        
+        console.log(`Saving step progress from lab page: Lab ${params.labId}, Step ${stepId}, Title ${stepTitle}`);
+        
+        // Make sure we're calling the client version
+        const result = await ProgressClient.updateStepProgress(
           params.labId as string,
           stepId,
           stepTitle,
           true
         );
         
+        console.log("Step progress backup result:", result);
+        
+        // Check if all steps are completed
+        const allSteps = lab.steps.map((s: any) => s.name.toLowerCase().replace(/\s+/g, '-'));
+        const newCompletedSteps = [...completedSteps, stepId];
+        const allCompleted = allSteps.every((stepIdentifier: string) => newCompletedSteps.includes(stepIdentifier));
+        
+        console.log(`All steps: [${allSteps.join(', ')}]`);
+        console.log(`Completed steps: [${newCompletedSteps.join(', ')}]`);
+        console.log(`All steps completed: ${allCompleted}`);
+        
         // If all steps are completed, mark the lab as completed
-        if (lab.steps.length === completedSteps.length + 1) {
-          await ProgressClient.completeLab(params.labId as string);
+        if (allCompleted) {
+          console.log(`All steps completed, completing lab ${params.labId}`);
+          const completionResult = await ProgressClient.completeLab(params.labId as string);
+          console.log("Lab completion result:", completionResult);
         }
       } catch (error) {
         console.error('Error updating step progress:', error);
       }
+    } else {
+      console.log("User not logged in or lab not loaded, step progress not saved");
     }
-  };
+  }, [completedSteps, user, lab, params.labId]);
   
   // Check if step is completed
   const isStepCompleted = (stepName: string) => {
@@ -403,7 +441,7 @@ export default function LabPage() {
               </div>
               <div class="flex justify-end">
                 <button id="test-xss" class="px-4 py-2 bg-[#00FF00]/10 text-[#00FF00] border border-[#00FF00]/30 rounded hover:bg-[#00FF00]/20">
-                  Test Payload
+                  Submit Flag
                 </button>
               </div>
               <div id="xss-result" class="mt-4 p-4 border border-dashed border-gray-700 bg-black"></div>
@@ -416,25 +454,189 @@ export default function LabPage() {
           const result = document.getElementById('xss-result');
           
           if (testButton && input && result) {
-            testButton.addEventListener('click', () => {
+            testButton.addEventListener('click', async () => {
               const payload = input.value.trim();
               if (!payload) return;
               
-              // Validate solution
-              const validation = validateSolution(lab.id, payload);
-              setValidationResult(validation);
+              setSubmittingFlag(true);
               
-              // Display the result - in a real app, this would be in a sandboxed iframe
               try {
-                result.innerHTML = `<div class="text-gray-400">Output:</div><div class="mt-2">${payload}</div>`;
-              } catch (e) {
-                result.textContent = 'Error rendering output';
+                // Validate solution
+                const validation = validateSolution(lab.id, payload);
+                setValidationResult(validation);
+                
+                // If correct, automatically mark the current step as complete
+                if (validation.success) {
+                  // Get the current active tab as the step ID
+                  const currentStepId = activeTab;
+                  
+                  // Only proceed if this isn't the intro tab and not already completed
+                  if (currentStepId !== 'intro' && !completedSteps.includes(currentStepId)) {
+                    console.log(`Flag correct! Automatically completing step: ${currentStepId}`);
+                    
+                    // Find the matching step to get the title
+                    const currentStep = lab.steps.find((s: any) => 
+                      s.name.toLowerCase().replace(/\s+/g, '-') === currentStepId
+                    );
+                    
+                    if (currentStep) {
+                      // Call the step completion handler
+                      await handleStepComplete(currentStepId);
+                      console.log(`Step ${currentStepId} marked as completed after correct flag submission`);
+                    }
+                  }
+                }
+                
+                // Display the result - in a real app, this would be in a sandboxed iframe
+                try {
+                  result.innerHTML = `<div class="text-gray-400">Output:</div><div class="mt-2">${payload}</div>`;
+                } catch (e) {
+                  result.textContent = 'Error rendering output';
+                }
+              } finally {
+                setSubmittingFlag(false);
               }
             });
           }
           break;
           
-        // Add more lab types here  
+        case 'sql-injection':
+          container.innerHTML = `
+            <div class="p-4 bg-black border border-gray-700 rounded-md">
+              <h3 class="text-lg font-medium text-white mb-3">SQL Injection Testing</h3>
+              <p class="text-gray-300 mb-4">Try to bypass the login by injecting SQL:</p>
+              <div class="mb-3">
+                <label class="block text-gray-400 text-sm mb-1">Username</label>
+                <input type="text" id="sql-username" placeholder="admin" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white"/>
+              </div>
+              <div class="mb-4">
+                <label class="block text-gray-400 text-sm mb-1">Password</label>
+                <input type="text" id="sql-password" placeholder="Enter SQL injection payload" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white"/>
+              </div>
+              <div class="flex justify-end">
+                <button id="test-sql" class="px-4 py-2 bg-[#00FF00]/10 text-[#00FF00] border border-[#00FF00]/30 rounded hover:bg-[#00FF00]/20">
+                  Submit Flag
+                </button>
+              </div>
+              <div id="sql-result" class="mt-4 p-4 border border-dashed border-gray-700 bg-black"></div>
+            </div>
+          `;
+          
+          // Set up event listeners
+          const sqlButton = document.getElementById('test-sql');
+          const passwordInput = document.getElementById('sql-password') as HTMLInputElement;
+          const sqlResult = document.getElementById('sql-result');
+          
+          if (sqlButton && passwordInput && sqlResult) {
+            sqlButton.addEventListener('click', async () => {
+              const payload = passwordInput.value.trim();
+              if (!payload) return;
+              
+              setSubmittingFlag(true);
+              
+              try {
+                // Validate solution
+                const validation = validateSolution(lab.id, payload);
+                setValidationResult(validation);
+                
+                // If correct, automatically mark the current step as complete
+                if (validation.success) {
+                  // Get the current active tab as the step ID
+                  const currentStepId = activeTab;
+                  
+                  // Only proceed if this isn't the intro tab and not already completed
+                  if (currentStepId !== 'intro' && !completedSteps.includes(currentStepId)) {
+                    console.log(`Flag correct! Automatically completing step: ${currentStepId}`);
+                    
+                    // Find the matching step to get the title
+                    const currentStep = lab.steps.find((s: any) => 
+                      s.name.toLowerCase().replace(/\s+/g, '-') === currentStepId
+                    );
+                    
+                    if (currentStep) {
+                      // Call the step completion handler
+                      await handleStepComplete(currentStepId);
+                      console.log(`Step ${currentStepId} marked as completed after correct flag submission`);
+                    }
+                  }
+                }
+                
+                sqlResult.innerHTML = validation.success
+                  ? `<div class="text-green-500">Access granted! You've successfully bypassed the login.</div>`
+                  : `<div class="text-red-500">Access denied. Try a different injection payload.</div>`;
+              } finally {
+                setSubmittingFlag(false);
+              }
+            });
+          }
+          break;
+          
+        case 'jwt-vulnerabilities':
+          container.innerHTML = `
+            <div class="p-4 bg-black border border-gray-700 rounded-md">
+              <h3 class="text-lg font-medium text-white mb-3">JWT Vulnerabilities Lab</h3>
+              <p class="text-gray-300 mb-4">Exploit the vulnerability in the JWT algorithm:</p>
+              <div class="mb-4">
+                <textarea id="jwt-input" placeholder="Enter your modified JWT or the vulnerable algorithm name" rows="3" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white"></textarea>
+              </div>
+              <div class="flex justify-end">
+                <button id="test-jwt" class="px-4 py-2 bg-[#00FF00]/10 text-[#00FF00] border border-[#00FF00]/30 rounded hover:bg-[#00FF00]/20">
+                  Submit Flag
+                </button>
+              </div>
+              <div id="jwt-result" class="mt-4 p-4 border border-dashed border-gray-700 bg-black"></div>
+            </div>
+          `;
+          
+          // Set up event listeners
+          const jwtButton = document.getElementById('test-jwt');
+          const jwtInput = document.getElementById('jwt-input') as HTMLTextAreaElement;
+          const jwtResult = document.getElementById('jwt-result');
+          
+          if (jwtButton && jwtInput && jwtResult) {
+            jwtButton.addEventListener('click', async () => {
+              const payload = jwtInput.value.trim();
+              if (!payload) return;
+              
+              setSubmittingFlag(true);
+              
+              try {
+                // Validate solution
+                const validation = validateSolution(lab.id, payload);
+                setValidationResult(validation);
+                
+                // If correct, automatically mark the current step as complete
+                if (validation.success) {
+                  // Get the current active tab as the step ID
+                  const currentStepId = activeTab;
+                  
+                  // Only proceed if this isn't the intro tab and not already completed
+                  if (currentStepId !== 'intro' && !completedSteps.includes(currentStepId)) {
+                    console.log(`Flag correct! Automatically completing step: ${currentStepId}`);
+                    
+                    // Find the matching step to get the title
+                    const currentStep = lab.steps.find((s: any) => 
+                      s.name.toLowerCase().replace(/\s+/g, '-') === currentStepId
+                    );
+                    
+                    if (currentStep) {
+                      // Call the step completion handler
+                      await handleStepComplete(currentStepId);
+                      console.log(`Step ${currentStepId} marked as completed after correct flag submission`);
+                    }
+                  }
+                }
+                
+                jwtResult.innerHTML = validation.success
+                  ? `<div class="text-green-500">Success! You've correctly identified the vulnerability.</div>`
+                  : `<div class="text-red-500">Incorrect. Review the JWT structure and try again.</div>`;
+              } finally {
+                setSubmittingFlag(false);
+              }
+            });
+          }
+          break;
+          
         default:
           container.innerHTML = `<p class="text-gray-400">No interactive elements for this lab.</p>`;
       }
@@ -446,13 +648,13 @@ export default function LabPage() {
     return () => {
       // Remove event listeners or cleanup resources
     }
-  }, [lab]);
+  }, [lab, activeTab, completedSteps, handleStepComplete]);  // Add handleStepComplete to dependencies
   
   const handleStepClick = (stepName: string) => {
     const tabId = stepName.toLowerCase().replace(/\s+/g, '-');
     setActiveTab(tabId);
   };
-
+  
   if (!lab) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -460,7 +662,7 @@ export default function LabPage() {
       </div>
     );
   }
-
+  
   return (
     <div className="min-h-screen bg-black pt-8">
       <div className="container mx-auto px-4">
@@ -471,9 +673,9 @@ export default function LabPage() {
               <Link
                 href="/cyber-labs"
                 className="inline-flex items-center text-[#00FF00] hover:text-[#00FF00]/80 transition-colors mb-4"
-              >
-                <ChevronLeft className="mr-2 h-4 w-4" />
-                Back to Labs
+        >
+          <ChevronLeft className="mr-2 h-4 w-4" />
+          Back to Labs
               </Link>
               
               <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">{lab.title}</h1>
@@ -482,10 +684,10 @@ export default function LabPage() {
                 {lab.tags.map((tag: string, index: number) => (
                   <Badge key={index} className="bg-[#00FF00]/10 text-[#00FF00] border border-[#00FF00]/30">
                     {tag}
-                  </Badge>
+          </Badge>
                 ))}
-              </div>
-              
+      </div>
+      
               <p className="text-gray-300 text-lg mb-6">{lab.description}</p>
               
               <div className="flex flex-wrap gap-4 mb-6">
@@ -504,8 +706,8 @@ export default function LabPage() {
                   <span>Category: <span className="text-white">{lab.category}</span></span>
                 </div>
               </div>
-            </div>
-            
+        </div>
+        
             {/* Lab content with tabs for steps */}
             <Card className="bg-gray-900/40 border-gray-800">
               <CardHeader className="border-b border-gray-800">
@@ -572,7 +774,7 @@ export default function LabPage() {
                     })}
                   </Tabs>
                 </div>
-              </CardHeader>
+            </CardHeader>
               
               <CardContent className="pt-6">
                 {/* Lab interaction container */}
@@ -587,7 +789,7 @@ export default function LabPage() {
                   >
                     <div className={`flex items-center gap-2 ${validationResult.success ? 'text-green-400' : 'text-red-400'}`}>
                       {validationResult.success ? (
-                        <CheckCircle2 className="h-4 w-4" />
+                  <CheckCircle2 className="h-4 w-4" />
                       ) : (
                         <AlertCircle className="h-4 w-4" />
                       )}
@@ -595,30 +797,30 @@ export default function LabPage() {
                     </div>
                     <AlertDescription className="mt-2 text-gray-300">
                       {validationResult.message}
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </CardContent>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
               
               <CardFooter className="flex justify-between border-t border-gray-800 pt-6">
-                <Button 
+              <Button 
                   variant="ghost"
                   className="border border-dashed border-gray-700 text-gray-400 hover:text-[#00FF00] hover:border-[#00FF00]/30 hover:bg-[#00FF00]/5"
                   onClick={() => router.push("/cyber-labs")}
                 >
                   <ChevronLeft className="mr-2 h-4 w-4" />
                   Back to Labs
-                </Button>
-                
-                <Button
+              </Button>
+              
+              <Button 
                   className="bg-[#00FF00] text-black hover:bg-[#00FF00]/90"
                   onClick={() => router.push("/cyber-labs/solutions/" + lab.id)}
                 >
                   <Trophy className="mr-2 h-4 w-4" />
                   View Solution
-                </Button>
-              </CardFooter>
-            </Card>
+              </Button>
+            </CardFooter>
+          </Card>
           </div>
           
           {/* Sidebar - 30% width on large screens */}
