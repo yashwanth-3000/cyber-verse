@@ -244,35 +244,6 @@ export default function CyberLabs() {
             </div>
           </div>
 
-          {/* Lab Categories Filter with enhanced sliding bar */}
-          <div className="mb-12">
-            <h2 className="text-xl font-semibold text-white mb-6 flex items-center border-l-2 border-[#00FF00]/50 pl-3">
-              <Terminal className="mr-2 h-5 w-5 text-[#00FF00]" />
-              Lab Categories
-            </h2>
-            
-            <div className="bg-black/30 border border-dashed border-gray-700 rounded-md p-2">
-              <div className="flex flex-wrap">
-                {CATEGORIES.map((category) => (
-                  <button
-                    key={category.id}
-                    data-value={category.id === "all" ? "all" : category.name}
-                    onClick={() => setActiveFilter(category.id === "all" ? "all" : category.name)}
-                    className={`flex items-center justify-center gap-2 flex-1 p-2 rounded-md transition-colors ${
-                      activeFilter === (category.id === "all" ? "all" : category.name)
-                        ? "bg-[#00FF00]/10 text-[#00FF00] border border-dashed border-[#00FF00]/30"
-                        : "text-gray-300 hover:bg-black/40 hover:text-white"
-                    }`}
-                  >
-                    {category.icon}
-                    <span>{category.name}</span>
-                    <span className="category-count">{category.count}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
           {/* Labs Grid with enhanced styling */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredLabs.map((lab, index) => (

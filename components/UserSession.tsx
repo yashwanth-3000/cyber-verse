@@ -81,7 +81,7 @@ export function UserSession() {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="relative h-9 rounded-full px-2 text-sm font-normal text-[#00FF00] border border-dashed border-[#00FF00]/20 hover:bg-[#00FF00]/10"
+          className="relative h-9 rounded-full px-2 text-sm font-normal text-[#00FF00] border border-dashed border-[#00FF00]/20 hover:bg-[#00FF00]/10 transition-all duration-300 hover:border-[#00FF00]/60 hover:shadow-[0_0_8px_rgba(0,255,0,0.3)]"
         >
           <Avatar className="h-6 w-6 mr-2">
             <AvatarImage src={avatarUrl} />
@@ -89,7 +89,7 @@ export function UserSession() {
               {getInitials()}
             </AvatarFallback>
           </Avatar>
-          <span className="max-w-[100px] truncate">{fullName}</span>
+          <span className="max-w-[200px] truncate hover:max-w-full transition-all duration-500">{fullName}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56 bg-black/90 backdrop-blur-md border border-[#00FF00]/20">
@@ -122,7 +122,7 @@ export function UserSession() {
           className="text-gray-200 focus:text-[#00FF00] focus:bg-[#00FF00]/10 cursor-pointer"
           asChild
         >
-          <Link href="/resources">
+          <Link href="/resources/my">
             <Book className="mr-2 h-4 w-4" />
             <span>My Resources</span>
           </Link>

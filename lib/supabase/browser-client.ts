@@ -2,6 +2,8 @@ import { createBrowserClient } from "@supabase/ssr";
 
 // We'll use a singleton pattern to ensure we only create one client instance
 let supabaseBrowserClient: ReturnType<typeof createBrowserClient> | null = null;
+// Track whether we've already logged the reuse message to avoid spamming logs
+let loggedReuseMessage = false;
 
 export function createSupabaseBrowserClient() {
   // Ensure environment variables are defined
@@ -26,8 +28,12 @@ export function createSupabaseBrowserClient() {
         }
       }
     );
-  } else if (supabaseBrowserClient) {
+    // Reset the log flag when creating a new client
+    loggedReuseMessage = false;
+  } else if (supabaseBrowserClient && !loggedReuseMessage) {
     console.log("Reusing existing Supabase browser client");
+    // Set the flag to avoid logging the reuse message repeatedly
+    loggedReuseMessage = true;
   }
   
   return supabaseBrowserClient || createBrowserClient(

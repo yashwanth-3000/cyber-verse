@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -10,6 +10,9 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ChevronLeft, Key, Flag, Code, ShieldAlert, Terminal, AlertTriangle, Eye, RefreshCw, ExternalLink, Database, Book } from "lucide-react"
+import { ProgressClient } from "@/lib/services/progress-service"
+import { toast } from "sonner"
+import { useAuth } from "@/lib/providers/auth-provider"
 
 // Lab steps data
 const LAB_STEPS = [
@@ -142,6 +145,7 @@ app.use((req, res, next) => {
 
 export default function WebSecurityLab() {
   const router = useRouter();
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [userInput, setUserInput] = useState("");
   const [showHint, setShowHint] = useState(false);
@@ -149,35 +153,162 @@ export default function WebSecurityLab() {
   const [errorMessage, setErrorMessage] = useState("");
   const [stepStatus, setStepStatus] = useState(Array(LAB_STEPS.length).fill(false));
   const [congratsVisible, setCongratsVisible] = useState(false);
+  const [labId] = useState("web-security-lab");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const initialLoadDoneRef = useRef(false);
+  const labCompletionTriggeredRef = useRef(false);
   
-  // Check for completed steps in localStorage
+  // Load completed steps from Supabase when component mounts or auth state changes
   useEffect(() => {
-    const savedStatus = localStorage.getItem('webSecurityLabStatus');
-    if (savedStatus) {
-      setStepStatus(JSON.parse(savedStatus));
-    }
-  }, []);
-  
-  // Update localStorage when step status changes
-  useEffect(() => {
-    localStorage.setItem('webSecurityLabStatus', JSON.stringify(stepStatus));
+    const loadCompletedSteps = async () => {
+      try {
+        if (!user) {
+          console.log("User not logged in, cannot load completed steps");
+          return;
+        }
+        
+        // Skip if we've already loaded steps once to prevent infinite loops
+        if (initialLoadDoneRef.current) {
+          console.log("Initial load already done, skipping to prevent loop");
+          return;
+        }
+        
+        console.log("Loading completed steps for lab:", labId);
+        console.log("User ID:", user.id);
+        
+        const stepProgress = await ProgressClient.getLabStepProgress(labId);
+        console.log("Loaded step progress:", stepProgress);
+        
+        if (stepProgress && stepProgress.length > 0) {
+          // Use functional update to avoid dependency on stepStatus
+          setStepStatus(prevStatus => {
+            const newStepStatus = [...prevStatus];
+            
+            // Update step status based on progress
+            stepProgress.forEach(step => {
+              const stepIndex = LAB_STEPS.findIndex(
+                labStep => labStep.id.toLowerCase().includes(step.step_title.toLowerCase()) ||
+                          labStep.name.toLowerCase().includes(step.step_title.toLowerCase())
+              );
+              
+              if (stepIndex !== -1 && step.is_completed) {
+                console.log(`Marking step ${stepIndex} (${step.step_title}) as completed`);
+                newStepStatus[stepIndex] = true;
+              }
+            });
+            
+            // Find the first incomplete step
+            const firstIncompleteIndex = newStepStatus.findIndex(status => !status);
+            if (firstIncompleteIndex !== -1) {
+              console.log(`Navigating to first incomplete step: ${firstIncompleteIndex}`);
+              setCurrentStep(firstIncompleteIndex);
+            }
+            
+            // Mark that we've done the initial load
+            initialLoadDoneRef.current = true;
+            
+            return newStepStatus;
+          });
+        } else {
+          // If no steps are completed yet, still mark initial load as done
+          initialLoadDoneRef.current = true;
+        }
+      } catch (error) {
+        console.error("Error loading completed steps:", error);
+        // Even on error, mark as done to prevent infinite retries
+        initialLoadDoneRef.current = true;
+      }
+    };
     
-    // Show congrats if all steps are completed
-    if (stepStatus.every(status => status === true)) {
-      setCongratsVisible(true);
+    // Only load completed steps if a user is logged in and initial load hasn't been done
+    if (user && !initialLoadDoneRef.current) {
+      loadCompletedSteps();
     }
-  }, [stepStatus]);
+  }, [user, labId]);
+
+  // Update overall progress when step status changes
+  useEffect(() => {
+    // Show congrats if all steps are completed
+    const completedSteps = stepStatus.filter(Boolean).length;
+    
+    if (completedSteps === stepStatus.length) {
+      setCongratsVisible(true);
+      
+      // Mark entire lab as completed, but only once
+      if (user && !labCompletionTriggeredRef.current) {
+        labCompletionTriggeredRef.current = true;
+        ProgressClient.completeLab(labId)
+          .then(result => {
+            console.log("Lab completed:", result);
+            toast.success("Congratulations! Lab completed successfully.");
+          })
+          .catch(error => {
+            console.error("Error completing lab:", error);
+            // Reset the flag if there was an error, to allow retry
+            labCompletionTriggeredRef.current = false;
+          });
+      }
+    }
+    
+    // Still update localStorage as a fallback for non-logged-in users
+    localStorage.setItem('webSecurityLabStatus', JSON.stringify(stepStatus));
+  }, [stepStatus, user, labId]);
   
   const validateFlag = () => {
+    // Reset error message
+    setErrorMessage("");
+    setIsSubmitting(true);
+    
+    // Check if input is empty
+    if (!userInput.trim()) {
+      setErrorMessage("Please enter a flag before submitting");
+      setIsSubmitting(false);
+      return;
+    }
+    
     const correctFlag = LAB_STEPS[currentStep].flag;
     
     if (userInput.trim() === correctFlag) {
-      // Success
+      // Success - update local state first for immediate feedback
       const newStepStatus = [...stepStatus];
       newStepStatus[currentStep] = true;
       setStepStatus(newStepStatus);
       setErrorMessage("");
       setUserInput("");
+      
+      // Save progress to Supabase if user is logged in
+      if (user) {
+        console.log(`User is logged in, saving progress for step ${LAB_STEPS[currentStep].id}`);
+        
+        // Force a delay to ensure any race conditions are avoided
+        setTimeout(async () => {
+          try {
+            const result = await ProgressClient.updateStepProgress(
+              labId,
+              `step-${currentStep + 1}`,
+              LAB_STEPS[currentStep].name,
+              true
+            );
+            
+            if (result) {
+              console.log("Successfully saved step progress:", result);
+              toast.success(`Challenge completed! Progress saved.`);
+            } else {
+              console.error("Failed to save step progress - result was null");
+              toast.error("Failed to save progress. Please try again.");
+            }
+          } catch (progressError) {
+            console.error("Exception saving progress:", progressError);
+            toast.error("Error saving progress. Please try again.");
+          } finally {
+            setIsSubmitting(false);
+          }
+        }, 500);
+      } else {
+        console.log("User not logged in, cannot save progress");
+        toast.warning("Log in to save your progress!");
+        setIsSubmitting(false);
+      }
       
       // Move to next step if not the last one
       if (currentStep < LAB_STEPS.length - 1) {
@@ -191,6 +322,7 @@ export default function WebSecurityLab() {
       // Failure
       setAttempts(attempts + 1);
       setErrorMessage("Incorrect flag. Try again.");
+      setIsSubmitting(false);
       
       // Show hint after 3 failed attempts
       if (attempts >= 2 && !showHint) {

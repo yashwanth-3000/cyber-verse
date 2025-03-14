@@ -23,7 +23,7 @@ export default function Home() {
     { name: "CyberVerse", path: "/", id: "home" },
     { name: "Resources", path: "/resources", id: "resources" },
     { name: "Cyber Labs", path: "/cyber-labs", id: "cyber-labs" },
-    { name: "Contact", path: "/contact", id: "contact" }
+    { name: "About", path: "/about", id: "contact" }
   ]
 
   // Terminal scan effect
@@ -109,6 +109,20 @@ export default function Home() {
                         duration: 3,
                         repeatType: "reverse",
                         ease: "easeInOut"
+                      }}
+                    />
+                    {/* Add glow effect on hover */}
+                    <motion.div 
+                      className="absolute -inset-1 opacity-0 group-hover:opacity-100 -z-20 blur-md rounded"
+                      initial={{ opacity: 0 }}
+                      whileHover={{ 
+                        opacity: [0, 0.1, 0.07, 0.05, 0.1],
+                        background: ["rgba(0,255,0,0)", "rgba(0,255,0,0.1)", "rgba(0,255,0,0.05)"]
+                      }}
+                      transition={{ 
+                        repeat: Infinity, 
+                        duration: 2,
+                        repeatType: "reverse"
                       }}
                     />
                   </motion.div>

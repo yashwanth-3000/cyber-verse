@@ -129,7 +129,28 @@ export class ProgressClient {
       
       if (error) throw error;
       
-      return data || [];
+      const labsWithSteps = await Promise.all((data || []).map(async (lab: LabProgress) => {
+        // Get steps for each lab
+        const { data: steps, error: stepError } = await supabase
+          .from('lab_step_progress')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('lab_id', lab.lab_id)
+          .order('id');
+        
+        if (stepError) {
+          console.error(`Error getting steps for lab ${lab.lab_id}:`, stepError);
+          return lab;
+        }
+        
+        // Add steps to the lab object
+        return {
+          ...lab,
+          steps: steps || []
+        };
+      }));
+      
+      return labsWithSteps || [];
     } catch (error) {
       console.error('Error getting all labs progress:', error);
       return [];
@@ -244,9 +265,26 @@ export class ProgressClient {
       const user = authResponse.data.user;
       console.log(`Authenticated User ID: ${user.id}`);
       
-      // Get lab progress
-      const labProgress = await this.getLabProgress(labId);
-      if (!labProgress) {
+      // First get the current lab progress
+      const { data, error } = await supabase
+        .from('lab_progress')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('lab_id', labId)
+        .single();
+      
+      if (error) {
+        console.error("Error getting lab progress:", error);
+        return null;
+      }
+      
+      // Check if the lab is already completed to prevent duplicate updates
+      if (data && data.is_completed) {
+        console.log(`Lab ${labId} is already completed, skipping update`);
+        return data;
+      }
+      
+      if (!data) {
         console.error(`No lab progress found for lab ${labId}`);
         const newProgress = await this.startLab(labId);
         if (!newProgress) {
@@ -287,25 +325,25 @@ export class ProgressClient {
       console.log(`Updating lab progress with completion status`);
       
       // Update the lab progress
-      const { data, error } = await supabase
+      const { data: updatedData, error: updateError } = await supabase
         .from('lab_progress')
         .update(updates)
         .eq('user_id', user.id)
         .eq('lab_id', labId)
         .select();
       
-      if (error) {
-        console.error("Error updating lab progress:", error);
-        console.error("Error details:", error.details, error.hint, error.code);
+      if (updateError) {
+        console.error("Error updating lab progress:", updateError);
+        console.error("Error details:", updateError.details, updateError.hint, updateError.code);
         return null;
       }
       
-      if (!data || data.length === 0) {
+      if (!updatedData || updatedData.length === 0) {
         console.error("No data returned after updating lab progress");
         return null;
       }
       
-      const result = data[0];
+      const result = updatedData[0];
       console.log(`Updated lab progress with completion status: ${result.id}`);
       
       // Update user progress summary

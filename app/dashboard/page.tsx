@@ -22,7 +22,8 @@ import {
   Activity,
   ChevronRight,
   GraduationCap,
-  Terminal
+  Terminal,
+  CheckCircle
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -215,6 +216,112 @@ export default function Dashboard() {
               <div className="col-span-2">
                 <h2 className="text-2xl font-bold text-white mb-6">Learning Progress</h2>
                 <UserProgressDashboard />
+                
+                {/* Most Recent Lab - New Addition */}
+                {labsProgress && labsProgress.length > 0 && (
+                  <div className="mt-8">
+                    <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                      <Terminal className="h-5 w-5 text-[#00FF00] mr-2" />
+                      Your Most Recent Lab
+                    </h3>
+                    
+                    {(() => {
+                      // Find the most recently updated lab
+                      const sortedLabs = [...labsProgress].sort((a, b) => 
+                        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+                      );
+                      const recentLab = sortedLabs[0];
+                      
+                      if (!recentLab) return null;
+                      
+                      return (
+                        <Card className="bg-gray-900/40 border-gray-800">
+                          <CardHeader className="pb-2">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <CardTitle className="text-lg text-white">
+                                  {recentLab.lab_id.replace(/-/g, ' ').replace(/(^\w{1})|(\s+\w{1})/g, (letter: string) => letter.toUpperCase())}
+                                </CardTitle>
+                                <CardDescription>
+                                  Last active: {new Date(recentLab.updated_at).toLocaleDateString()}
+                                </CardDescription>
+                              </div>
+                              <div className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                recentLab.is_completed 
+                                  ? 'bg-[#00FF00]/20 text-[#00FF00] border border-[#00FF00]/30' 
+                                  : 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
+                              }`}>
+                                {recentLab.is_completed ? 'Completed' : 'In Progress'}
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="py-3">
+                            <div className="mb-4">
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="text-gray-400">{recentLab.completion_percentage}% complete</span>
+                                <span className="text-gray-400">{recentLab.completed_steps}/{recentLab.total_steps} steps</span>
+                              </div>
+                              <Progress 
+                                value={recentLab.completion_percentage} 
+                                className="h-2 bg-gray-800"
+                                style={{ "--progress-foreground": recentLab.is_completed ? "#00FF00" : "#f59e0b" } as React.CSSProperties}
+                              />
+                            </div>
+                            
+                            {/* Lab Steps */}
+                            {recentLab.steps && recentLab.steps.length > 0 && (
+                              <div className="space-y-2 border border-gray-800 rounded-md p-3">
+                                <h4 className="text-sm font-medium text-gray-300 border-b border-gray-800 pb-2 mb-3">Lab Steps</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                  {recentLab.steps.map((step: any, index: number) => (
+                                    <div 
+                                      key={step.id || index} 
+                                      className={`flex items-center p-2 rounded ${
+                                        step.is_completed 
+                                          ? 'bg-[#00FF00]/10 border border-[#00FF00]/20' 
+                                          : 'bg-gray-800/50 border border-gray-800'
+                                      }`}
+                                    >
+                                      <div className={`w-6 h-6 flex items-center justify-center rounded-full mr-2 ${
+                                        step.is_completed 
+                                          ? 'bg-[#00FF00]/20 text-[#00FF00]' 
+                                          : 'bg-gray-900 text-gray-400'
+                                      }`}>
+                                        {step.is_completed ? (
+                                          <CheckCircle className="h-3.5 w-3.5" />
+                                        ) : (
+                                          index + 1
+                                        )}
+                                      </div>
+                                      <div className="flex-1">
+                                        <div className={`text-xs font-medium ${step.is_completed ? 'text-[#00FF00]' : 'text-gray-300'}`}>
+                                          {step.step_title}
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                          {step.is_completed ? 'Completed' : 'Not started'}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                          <CardFooter className="pt-2">
+                            <Button
+                              variant="ghost"
+                              className="w-full text-[#00FF00] hover:bg-[#00FF00]/10 border border-dashed border-[#00FF00]/30"
+                              onClick={() => router.push(`/cyber-labs/${recentLab.lab_id}`)}
+                            >
+                              {recentLab.is_completed ? 'Review Lab' : 'Continue Lab'}
+                              <ChevronRight className="h-4 w-4 ml-2" />
+                            </Button>
+                          </CardFooter>
+                        </Card>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
 
               {/* Sidebar - Achievements and recommendations */}
@@ -363,6 +470,33 @@ export default function Dashboard() {
                           style={{ "--progress-foreground": lab.is_completed ? "#00FF00" : "#f59e0b" } as React.CSSProperties}
                         />
                       </div>
+                      
+                      {/* Lab Steps Section - New addition */}
+                      {lab.steps && lab.steps.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          <h4 className="text-sm font-medium text-gray-200 mb-2">Lab Steps:</h4>
+                          <div className="space-y-2 max-h-[120px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+                            {lab.steps.map((step: any, index: number) => (
+                              <div 
+                                key={step.id || index} 
+                                className={`flex items-center py-1.5 px-2 rounded text-xs ${
+                                  step.is_completed 
+                                    ? 'bg-[#00FF00]/10 text-[#00FF00]' 
+                                    : 'bg-gray-800/50 text-gray-300'
+                                }`}
+                              >
+                                {step.is_completed ? (
+                                  <CheckCircle className="h-3.5 w-3.5 mr-2 text-[#00FF00]" />
+                                ) : (
+                                  <div className="h-3.5 w-3.5 mr-2 rounded-full border border-gray-500"></div>
+                                )}
+                                <span>{index + 1}. {step.title}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="flex items-center text-gray-400 text-xs mt-3">
                         <Clock className="h-3.5 w-3.5 mr-1" />
                         <span>Last active: {new Date(lab.updated_at).toLocaleDateString()}</span>
@@ -379,8 +513,8 @@ export default function Dashboard() {
                       </Button>
                     </CardFooter>
                   </Card>
-                  ))}
-                </div>
+                ))}
+              </div>
             ) : (
               <Card className="bg-gray-900/40 border-gray-800 text-center p-8">
                 <Shield className="h-16 w-16 text-gray-700 mx-auto mb-4" />

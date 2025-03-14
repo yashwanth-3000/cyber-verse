@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import "../phishing-style.css"; // Import custom phishing CSS
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
+import { useAuth } from "@/lib/providers/auth-provider";
 
 // --- Types ---
 interface GameState {
@@ -1083,18 +1085,23 @@ const SecurityChallenge = () => {
 
   // Calculate score based on time and wrong clicks
   const calculateScore = (time: number, wrongClicks: number) => {
-    // Base score of 1500 for level 3 (more difficult)
+    // Base score of 1500 for level 3, since it's harder
     const baseScore = 1500;
-    // Deduct 50 points per wrong click
-    const wrongClickPenalty = wrongClicks * 50;
-    // Deduct 3 points per second taken
-    const timePenalty = Math.floor(time * 3);
     
-    return Math.max(0, baseScore - wrongClickPenalty - timePenalty);
+    // Deduct 70 points per wrong click (more penalty in level 3)
+    const wrongClickPenalty = wrongClicks * 70;
+    // Deduct 10 points per second taken
+    const timePenalty = Math.floor(time / 3) * 10;
+    
+    // Calculate raw score
+    const rawScore = Math.max(0, baseScore - wrongClickPenalty - timePenalty);
+    
+    // Convert to 10-point scale (1500 points = 10 points on new scale)
+    return Math.min(10, Math.max(0, Math.round((rawScore / 1500) * 10)));
   };
   
-  // Save score to leaderboard (via localStorage)
-  const saveToLeaderboard = (levelData: {
+  // Save score to Supabase leaderboard
+  const saveToLeaderboard = async (levelData: {
     level: number;
     time: number;
     correctClicks: number;
@@ -1102,42 +1109,94 @@ const SecurityChallenge = () => {
     score: number;
   }) => {
     try {
-      // Get existing data
-      const existingDataStr = localStorage.getItem('phishing-leaderboard');
-      const existingData = existingDataStr ? JSON.parse(existingDataStr) : { 
-        id: 'user-' + Date.now(),
-        name: 'Player',
-        level1: { completed: false, time: 0, correctClicks: 0, wrongClicks: 0, score: 0 },
-        level2: { completed: false, time: 0, correctClicks: 0, wrongClicks: 0, score: 0 },
-        level3: { completed: false, time: 0, correctClicks: 0, wrongClicks: 0, score: 0 },
-        totalScore: 0,
-        completedAt: new Date().toISOString()
-      };
+      const { user } = useAuth();
+      const supabase = createSupabaseBrowserClient();
       
-      // Update level data
-      if (levelData.level === 3) {
-        existingData.level3 = { 
-          completed: true,
-          time: levelData.time,
-          correctClicks: levelData.correctClicks,
-          wrongClicks: levelData.wrongClicks,
-          score: levelData.score
+      // If user is not logged in, save to localStorage as fallback
+      if (!user) {
+        // Get existing data
+        const existingDataStr = localStorage.getItem('phishing-leaderboard');
+        const existingData = existingDataStr ? JSON.parse(existingDataStr) : { 
+          id: 'user-' + Date.now(),
+          name: 'Player',
+          level1: { completed: false, time: 0, correctClicks: 0, wrongClicks: 0, score: 0 },
+          level2: { completed: false, time: 0, correctClicks: 0, wrongClicks: 0, score: 0 },
+          level3: { completed: false, time: 0, correctClicks: 0, wrongClicks: 0, score: 0 },
+          totalScore: 0,
+          completedAt: new Date().toISOString()
         };
+        
+        // Update level data (keeping the existing localStorage functionality as fallback)
+        if (levelData.level === 3) {
+          existingData.level3 = {
+            completed: true,
+            time: levelData.time,
+            correctClicks: levelData.correctClicks,
+            wrongClicks: levelData.wrongClicks,
+            score: levelData.score
+          };
+        }
+        
+        // Recalculate total score
+        existingData.totalScore = (
+          (existingData.level1?.score || 0) +
+          (existingData.level2?.score || 0) +
+          (existingData.level3?.score || 0)
+        );
+        
+        // Update completion timestamp
+        existingData.completedAt = new Date().toISOString();
+        
+        // Save back to localStorage
+        localStorage.setItem('phishing-leaderboard', JSON.stringify(existingData));
+        return;
       }
       
-      // Recalculate total score
-      existingData.totalScore = (existingData.level1?.score || 0) + 
-                               (existingData.level2?.score || 0) + 
-                               (existingData.level3?.score || 0);
-      
-      existingData.completedAt = new Date().toISOString();
-      
-      // Save back to localStorage
-      localStorage.setItem('phishing-leaderboard', JSON.stringify(existingData));
-      
-      console.log('Saved to leaderboard:', existingData);
+      // If logged in, save to Supabase
+      // First check if user already has a record
+      const { data: existingRecord, error: fetchError } = await supabase
+        .from('leaderboard')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      // Get user's nickname
+      let nickname = user.email?.split('@')[0] || "Anonymous";
+      if (existingRecord?.nickname) {
+        nickname = existingRecord.nickname;
+      }
+        
+      if (existingRecord) {
+        // Only update if the new score is better than the existing one
+        if (levelData.score > existingRecord.score) {
+          const { error: updateError } = await supabase
+            .from('leaderboard')
+            .update({ 
+              score: levelData.score,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingRecord.id);
+            
+          if (updateError) {
+            console.error('Error updating leaderboard:', updateError.message);
+          }
+        }
+      } else {
+        // Insert new record
+        const { error: insertError } = await supabase
+          .from('leaderboard')
+          .insert({
+            user_id: user.id,
+            score: levelData.score,
+            nickname: nickname
+          });
+          
+        if (insertError) {
+          console.error('Error inserting to leaderboard:', insertError.message);
+        }
+      }
     } catch (error) {
-      console.error('Failed to save to leaderboard:', error);
+      console.error('Error saving to leaderboard:', error);
     }
   };
 

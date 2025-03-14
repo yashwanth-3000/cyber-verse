@@ -44,6 +44,8 @@ function getButtonIcon(resourceId: number) {
       return <ArrowRight className="h-4 w-4 text-[#00FF00]" />;
     case 6: // Events Calendar
       return <Clock className="h-4 w-4 text-[#00FF00]" />;
+    case 7: // Cyber Labs
+      return <Shield className="h-4 w-4 text-[#00FF00]" />;
     default:
       return <ArrowRight className="h-4 w-4 text-[#00FF00]" />;
   }
@@ -68,7 +70,7 @@ function ResourceCard({ resource }: ResourceCardProps) {
   const buttonVariants = {
     normal: {
       scale: 1,
-      backgroundColor: "transparent",
+      backgroundColor: "rgba(0, 255, 0, 0)",
       borderColor: "rgba(0, 255, 0, 0.3)"
     },
     highlighted: {
@@ -131,7 +133,7 @@ function ResourceCard({ resource }: ResourceCardProps) {
               duration: 0.2, 
               ease: [0.2, 0.65, 0.3, 0.9]
             }}
-            className="mt-4 sm:mt-0 text-[#00FF00] border border-dashed px-4 py-2 rounded hover:bg-[#00FF00]/10 transition-all duration-300 flex items-center justify-center gap-2 min-w-[140px] h-[40px]"
+            className="mt-4 sm:mt-0 text-[#00FF00] border border-dashed px-4 py-2 rounded transition-all duration-300 flex items-center justify-center gap-2 min-w-[140px] h-[40px]"
           >
             <span>{resource.buttonText}</span>
             <motion.span
@@ -217,6 +219,16 @@ export default function Resources() {
       buttonText: "Chat Now"
     },
     {
+      id: 7,
+      title: "Cyber Labs",
+      description: "Hands-on cybersecurity laboratories for practicing defense techniques, attack simulations, and security hardening.",
+      link: "/cyber-labs",
+      image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
+      icon: <Shield className="h-6 w-6 text-[#00FF00]" />,
+      buttonText: "Enter Labs"
+    },
+
+    {
       id: 5,
       title: "Cyber News",
       description: "Stay informed with the latest cybersecurity news, breaches, vulnerabilities, and updates from around the world.",
@@ -225,15 +237,7 @@ export default function Resources() {
       icon: <BookOpen className="h-6 w-6 text-[#00FF00]" />,
       buttonText: "Read News"
     },
-    {
-      id: 6,
-      title: "Events Calendar",
-      description: "Explore upcoming cybersecurity conferences, webinars, and training events from SANS and other leading organizations.",
-      link: "/events-calendar",
-      image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
-      icon: <Calendar className="h-6 w-6 text-[#00FF00]" />,
-      buttonText: "View Events"
-    },
+
     {
       id: 3,
       title: "Phishing Training",
@@ -243,6 +247,17 @@ export default function Resources() {
       icon: <AlertTriangle className="h-6 w-6 text-[#00FF00]" />,
       buttonText: "Start Training"
     },
+
+    {
+      id: 6,
+      title: "Events Calendar",
+      description: "Explore upcoming cybersecurity conferences, webinars, and training events from SANS and other leading organizations.",
+      link: "/events-calendar",
+      image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
+      icon: <Calendar className="h-6 w-6 text-[#00FF00]" />,
+      buttonText: "View Events"
+    },
+
   ]
 
   const prefersReducedMotion = useReducedMotion()

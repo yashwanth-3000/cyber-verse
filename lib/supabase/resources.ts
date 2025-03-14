@@ -206,6 +206,25 @@ export const getRelatedResources = async (resourceId: string, limit = 3) => {
   }
 };
 
+// Get resources shared by a specific user
+export const getUserResources = async (userId: string) => {
+  const supabase = createSupabaseBrowserClient();
+  
+  try {
+    const { data, error } = await supabase
+      .from('resources_with_stats')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
+    return { success: true, resources: data };
+  } catch (error) {
+    console.error('Error fetching user resources:', error);
+    return { success: false, error };
+  }
+};
+
 // Server-side functions
 export const getResourcesServer = async () => {
   const supabase = createSupabaseClientServer();

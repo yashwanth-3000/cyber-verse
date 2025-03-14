@@ -839,29 +839,55 @@ export default function LabPage() {
                 {lab.steps.map((step: any, index: number) => {
                   const stepId = step.name.toLowerCase().replace(/\s+/g, '-');
                   const completed = isStepCompleted(step.name);
+                  const isActive = activeTab === stepId || (index === 0 && activeTab === 'intro');
                   
                   return (
                     <div 
                       key={stepId}
-                      className={`flex items-center justify-between p-3 rounded-md cursor-pointer transition-colors ${
-                        activeTab === stepId ? 'bg-[#00FF00]/10 border border-[#00FF00]/30' : 'bg-black/30 border border-gray-800 hover:bg-black/50'
+                      className={`flex items-start p-3 rounded-md cursor-pointer transition-all duration-200 ${
+                        isActive 
+                          ? 'bg-[#00FF00]/10 border border-[#00FF00]/30' 
+                          : 'bg-black/30 border border-gray-800 hover:bg-black/50'
                       }`}
                       onClick={() => handleStepClick(step.name)}
                     >
-                      <div className="flex items-center">
-                        <span className={`w-6 h-6 flex items-center justify-center rounded-full border ${
-                          completed ? 'border-[#00FF00] bg-[#00FF00]/20 text-[#00FF00]' : 'border-gray-600 bg-black/50 text-gray-400'
-                        } mr-3`}>
-                          {completed ? (
-                            <CheckCircle className="h-4 w-4" />
-                          ) : (
-                            index + 1
-                          )}
-                        </span>
-                        <span className={completed ? 'text-[#00FF00]' : 'text-gray-300'}>
+                      <div className={`min-w-6 w-6 h-6 flex items-center justify-center rounded-full border ${
+                        completed 
+                          ? 'border-[#00FF00] bg-[#00FF00]/20 text-[#00FF00]' 
+                          : isActive 
+                            ? 'border-[#00FF00] bg-black text-[#00FF00]' 
+                            : 'border-gray-600 bg-black/50 text-gray-400'
+                      } mr-3 mt-0.5`}>
+                        {completed ? (
+                          <CheckCircle className="h-4 w-4" />
+                        ) : (
+                          index + 1
+                        )}
+                      </div>
+                      <div className="flex flex-col flex-1">
+                        <span className={`font-medium ${
+                          completed 
+                            ? 'text-[#00FF00]' 
+                            : isActive 
+                              ? 'text-gray-100' 
+                              : 'text-gray-300'
+                        }`}>
                           {step.name}
                         </span>
+                        <span className="text-xs mt-1 text-gray-500">
+                          {completed 
+                            ? 'Completed' 
+                            : isActive 
+                              ? 'In Progress' 
+                              : index === 0 
+                                ? 'Start here' 
+                                : `Step ${index + 1} of ${lab.steps.length}`
+                          }
+                        </span>
                       </div>
+                      {isActive && (
+                        <div className="h-full w-1 bg-[#00FF00] rounded-full ml-2"></div>
+                      )}
                     </div>
                   );
                 })}

@@ -18,37 +18,14 @@ import {
   Trophy,
   Brain,
   Eye,
-  MousePointer
+  MousePointer,
+  BadgeCheck,
+  User,
+  Key,
+  Monitor
 } from "lucide-react"
-
-// Types for leaderboard entries
-interface LeaderboardEntry {
-  id: string
-  name: string
-  level1: {
-    completed: boolean
-    time: number // in seconds
-    correctClicks: number
-    wrongClicks: number
-    score: number
-  }
-  level2: {
-    completed: boolean
-    time: number
-    correctClicks: number
-    wrongClicks: number
-    score: number
-  }
-  level3: {
-    completed: boolean
-    time: number
-    correctClicks: number
-    wrongClicks: number
-    score: number
-  }
-  totalScore: number
-  completedAt: string
-}
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client"
+import { useAuth } from "@/lib/providers/auth-provider"
 
 // Game instructions for each level
 const levelInstructions = [
@@ -75,145 +52,6 @@ const levelInstructions = [
   }
 ]
 
-// Mock leaderboard data
-const mockLeaderboardData: LeaderboardEntry[] = [
-  {
-    id: "user1",
-    name: "CyberSentinel",
-    level1: {
-      completed: true,
-      time: 45,
-      correctClicks: 5,
-      wrongClicks: 0,
-      score: 950
-    },
-    level2: {
-      completed: true,
-      time: 62,
-      correctClicks: 7,
-      wrongClicks: 1,
-      score: 870
-    },
-    level3: {
-      completed: true,
-      time: 98,
-      correctClicks: 12,
-      wrongClicks: 2,
-      score: 790
-    },
-    totalScore: 2610,
-    completedAt: "2023-02-15T14:23:45Z"
-  },
-  {
-    id: "user2",
-    name: "PhishFighter",
-    level1: {
-      completed: true,
-      time: 52,
-      correctClicks: 5,
-      wrongClicks: 1,
-      score: 880
-    },
-    level2: {
-      completed: true,
-      time: 59,
-      correctClicks: 7,
-      wrongClicks: 0,
-      score: 910
-    },
-    level3: {
-      completed: true,
-      time: 120,
-      correctClicks: 12,
-      wrongClicks: 3,
-      score: 720
-    },
-    totalScore: 2510,
-    completedAt: "2023-02-16T09:12:33Z"
-  },
-  {
-    id: "user3",
-    name: "SecureClicker",
-    level1: {
-      completed: true,
-      time: 38,
-      correctClicks: 5,
-      wrongClicks: 0,
-      score: 980
-    },
-    level2: {
-      completed: true,
-      time: 71,
-      correctClicks: 7,
-      wrongClicks: 2,
-      score: 810
-    },
-    level3: {
-      completed: false,
-      time: 0,
-      correctClicks: 0,
-      wrongClicks: 0,
-      score: 0
-    },
-    totalScore: 1790,
-    completedAt: "2023-02-14T16:45:21Z"
-  },
-  {
-    id: "user4",
-    name: "ByteDefender",
-    level1: {
-      completed: true,
-      time: 49,
-      correctClicks: 5,
-      wrongClicks: 1,
-      score: 900
-    },
-    level2: {
-      completed: true,
-      time: 64,
-      correctClicks: 7,
-      wrongClicks: 1,
-      score: 860
-    },
-    level3: {
-      completed: true,
-      time: 110,
-      correctClicks: 12,
-      wrongClicks: 4,
-      score: 700
-    },
-    totalScore: 2460,
-    completedAt: "2023-02-17T11:33:44Z"
-  },
-  {
-    id: "user5",
-    name: "ThreatNeutralizr",
-    level1: {
-      completed: true,
-      time: 60,
-      correctClicks: 5,
-      wrongClicks: 2,
-      score: 830
-    },
-    level2: {
-      completed: true,
-      time: 75,
-      correctClicks: 7,
-      wrongClicks: 3,
-      score: 770
-    },
-    level3: {
-      completed: true,
-      time: 105,
-      correctClicks: 12,
-      wrongClicks: 1,
-      score: 840
-    },
-    totalScore: 2440,
-    completedAt: "2023-02-18T08:21:15Z"
-  }
-]
-
 // Format time in mm:ss format
 const formatTime = (seconds: number): string => {
   if (seconds === 0) return '—'
@@ -223,462 +61,279 @@ const formatTime = (seconds: number): string => {
 }
 
 export default function PhishingTrainingHome() {
-  const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([])
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  // Fetch leaderboard data (mock implementation)
-  useEffect(() => {
-    const fetchLeaderboard = async () => {
-      setIsLoading(true);
-      try {
-        // Get data from localStorage if available
-        const localStorageData = localStorage.getItem('phishing-leaderboard');
-        
-        if (localStorageData) {
-          const userData = JSON.parse(localStorageData);
-          // Convert single user data to array format expected by component
-          const formattedData = [userData];
-          
-          // Add mock data for competition if needed
-          const combinedData = [...formattedData, ...mockLeaderboardData.slice(0, 4)];
-          
-          // Sort by total score
-          combinedData.sort((a, b) => b.totalScore - a.totalScore);
-          
-          setLeaderboardData(combinedData);
-        } else {
-          // Fall back to mock data if no localStorage data exists
-          setLeaderboardData(mockLeaderboardData);
-        }
-      } catch (error) {
-        console.error('Error fetching leaderboard:', error);
-        setLeaderboardData(mockLeaderboardData);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchLeaderboard();
-  }, []);
-
-  // Set body class for phishing mode cursor styling
-  useEffect(() => {
-    // Add the class when component mounts
-    document.body.classList.add('phishing-mode')
-    
-    // Remove the class when component unmounts
-    return () => {
-      document.body.classList.remove('phishing-mode')
-    }
-  }, [])
+  
+  const { user } = useAuth()
+  const supabase = createSupabaseBrowserClient()
 
   return (
-    <div className="min-h-screen bg-black">
-      <div className="relative">
-        {/* Background effects */}
-        <div className="absolute inset-0 overflow-hidden z-0">
-          <div className="absolute w-[500px] h-[500px] top-0 left-1/4 bg-purple-500/5 blur-[150px] rounded-full"></div>
-          <div className="absolute w-[300px] h-[300px] bottom-1/4 right-1/3 bg-red-500/5 blur-[150px] rounded-full"></div>
-          
-          {/* Terminal-inspired background pattern */}
-          <div 
-            className="absolute inset-0 opacity-[0.03]"
-            style={{
-              backgroundImage: `linear-gradient(rgba(255, 0, 0, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 0, 0, 0.1) 1px, transparent 1px)`,
-              backgroundSize: '20px 20px'
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/30 to-black/80"></div>
-          
-          {/* Scan line effect */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div 
-              className="absolute inset-0 opacity-[0.03] z-0"
-              style={{
-                backgroundImage: `linear-gradient(transparent 50%, rgba(0, 0, 0, 0.8) 50%)`,
-                backgroundSize: '100% 4px',
-                animation: 'scanlines 0.2s linear infinite'
-              }}
-            />
+    <div className="phishing-container min-h-screen bg-gradient-to-r from-black via-gray-900 to-black text-white pb-20 relative">
+      {/* Background grid pattern */}
+      <div 
+        className="absolute inset-0 opacity-[0.05]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(0, 150, 255, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 150, 255, 0.1) 1px, transparent 1px)`,
+          backgroundSize: '20px 20px'
+        }}
+      />
+      
+      {/* Animated glowing orbs for cyberpunk feel */}
+      <div className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full bg-blue-500/5 blur-[100px] animate-pulse"></div>
+      <div className="absolute bottom-1/3 right-1/4 w-96 h-96 rounded-full bg-purple-500/5 blur-[120px] animate-pulse" style={{ animationDelay: '1s' }}></div>
+      
+      {/* Corner decorations */}
+      <div className="absolute top-0 left-0 w-64 h-64 border-l-2 border-t-2 border-dashed border-blue-500/20"></div>
+      <div className="absolute bottom-0 right-0 w-64 h-64 border-r-2 border-b-2 border-dashed border-blue-500/20"></div>
+      
+      {/* Terminal scanline effect */}
+      <div className="absolute inset-0 pointer-events-none bg-scanline opacity-[0.03] z-[1]"></div>
+      
+      <div className="container mx-auto px-4 py-8 relative z-10">
+        <Link href="/what-you-want-to-know" className="flex items-center text-blue-400 hover:text-blue-300 mb-6 group transition-all duration-300">
+          <div className="relative">
+            <ArrowLeft className="mr-2 w-5 h-5 group-hover:-translate-x-1 transition-transform duration-300" />
+            <div className="absolute inset-0 bg-blue-400/20 rounded-full blur-[5px] opacity-0 group-hover:opacity-100 transition-opacity"></div>
           </div>
-        </div>
-
-        {/* Add scan line animation */}
-        <style jsx global>{`
-          @keyframes scanlines {
-            0% {
-              transform: translateY(0);
-            }
-            100% {
-              transform: translateY(4px);
-            }
-          }
-          
-          @keyframes typing {
-            from { width: 0 }
-            to { width: 100% }
-          }
-          
-          .typing-animation {
-            display: inline-block;
-            overflow: hidden;
-            white-space: nowrap;
-            border-right: 2px solid #FF3333;
-            animation: 
-              typing 3.5s steps(40, end),
-              blink-caret 0.75s step-end infinite;
-          }
-          
-          @keyframes blink-caret {
-            from, to { border-color: transparent }
-            50% { border-color: #FF3333 }
-          }
-          
-          @keyframes pulse-red {
-            0%, 100% { 
-              box-shadow: 0 0 0 0 rgba(255, 51, 51, 0.4);
-            }
-            50% { 
-              box-shadow: 0 0 0 10px rgba(255, 51, 51, 0);
-            }
-          }
-        `}</style>
-
-        {/* Main content */}
-        <div className="relative z-10 p-4 md:p-8" style={{
-          fontFamily: "Menlo, Monaco, Consolas, 'Courier New', monospace",
-          cursor: "default"
-        }}>
-          <div className="max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="flex flex-col mb-8">
-              <div className="flex items-center mb-2">
-                <Link
-                  href="/what-you-want-to-know"
-                  className="inline-flex items-center text-red-500 hover:text-red-400 transition-colors mr-4"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Resources
-                </Link>
-                <div className="h-px flex-grow bg-gradient-to-r from-red-500/0 via-red-500/40 to-red-500/0"></div>
-              </div>
-              
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <div className="text-red-500/70 text-xs font-mono mb-1">
-                    <span className="mr-1">$</span>
-                    <span className="typing-animation">init-training --mode=phishing-defense</span>
-                  </div>
-                  <h1 className="text-3xl md:text-5xl font-bold text-red-500 font-mono tracking-tight">
-                    Phishing<span className="text-white">Defense</span>
-                  </h1>
-                  <p className="text-gray-400 mt-2 font-mono max-w-2xl">
-                    Train your cybersecurity skills by identifying and avoiding sophisticated phishing attempts in realistic scenarios.
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            {/* Main game info section */}
-            <div className="mb-12">
-              <div className="bg-gradient-to-br from-gray-900/80 to-black border-2 border-dashed border-red-500/60 rounded-xl overflow-hidden shadow-lg shadow-red-500/5 p-6 md:p-8">
-                <div className="flex flex-col md:flex-row gap-8">
-                  {/* Game description */}
-                  <div className="flex-1">
-                    <h2 className="text-2xl font-bold text-white mb-4">Mission Briefing</h2>
-                    <p className="text-gray-300 mb-4">
-                      You're about to enter a realistic simulation of the dangerous world of phishing attacks. 
-                      Your mission is to identify and avoid social engineering attempts designed to trick you 
-                      into revealing sensitive information or taking harmful actions.
-                    </p>
-                    <p className="text-gray-300 mb-6">
-                      Progress through increasingly challenging levels that test your ability to spot the warning signs 
-                      of phishing attempts. Remember, in cybersecurity, hesitation and caution are virtues.
-                    </p>
-                    
-                    <h3 className="text-lg font-bold text-white mb-3 flex items-center">
-                      <Brain className="mr-2 h-5 w-5 text-red-400" />
-                      Key Skills You'll Develop
-                    </h3>
-                    <ul className="text-gray-300 mb-6 space-y-2">
-                      <li className="flex items-start">
-                        <Eye className="h-4 w-4 text-red-400 mt-1 mr-2 flex-shrink-0" />
-                        <span>Identifying suspicious elements in emails, websites, and popups</span>
-                      </li>
-                      <li className="flex items-start">
-                        <MousePointer className="h-4 w-4 text-red-400 mt-1 mr-2 flex-shrink-0" />
-                        <span>Developing safe clicking habits under pressure</span>
-                      </li>
-                      <li className="flex items-start">
-                        <AlertTriangle className="h-4 w-4 text-red-400 mt-1 mr-2 flex-shrink-0" />
-                        <span>Recognizing social engineering tactics</span>
-                      </li>
-                      <li className="flex items-start">
-                        <ShieldAlert className="h-4 w-4 text-red-400 mt-1 mr-2 flex-shrink-0" />
-                        <span>Building reflexive security awareness</span>
-                      </li>
-                    </ul>
-                    
-                    <div className="mt-6">
-                      <Link href="/phising-traning/level-1">
-                        <button className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors flex items-center group">
-                          Start Training
-                          <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                        </button>
+          <span className="relative">
+            Back to Courses
+            <span className="absolute -bottom-1 left-0 right-0 h-px bg-gradient-to-r from-blue-500/0 via-blue-500/50 to-blue-500/0 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></span>
+          </span>
                       </Link>
+        
+        <header className="text-center mb-16 relative">
+          <div className="absolute top-0 left-0 w-32 h-32 border-l-2 border-t-2 border-dashed border-blue-500/30 -ml-4 -mt-4"></div>
+          <div className="absolute bottom-0 right-0 w-32 h-32 border-r-2 border-b-2 border-dashed border-blue-500/30 -mr-4 -mb-4"></div>
+          
+          {/* Cyberpunk-styled glitch text effect */}
+          <div className="relative inline-block">
+            <h1 className="text-5xl font-bold mb-2 text-white cyberpunk-text glitch relative inline-block">
+              <span>Phishing Training Simulator</span>
+              <span className="glitch-effect" aria-hidden="true">Phishing Training Simulator</span>
+            </h1>
+            <div className="absolute -bottom-2 left-0 w-full h-px bg-gradient-to-r from-blue-500/0 via-blue-500/70 to-blue-500/0"></div>
+                      </div>
+                      
+          <p className="text-xl text-gray-300 max-w-3xl mx-auto mt-6 relative">
+            Master the art of identifying and avoiding phishing attempts through interactive scenarios
+            <span className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-48 h-px bg-gradient-to-r from-blue-500/0 via-blue-500/40 to-blue-500/0"></span>
+          </p>
+        </header>
+        
+        {/* Section Title */}
+        <div className="flex items-center mb-8">
+          <h2 className="text-2xl font-bold text-blue-400">Training Modules</h2>
+          <div className="ml-4 h-px flex-grow bg-gradient-to-r from-blue-500/50 to-blue-500/0"></div>
+          <div className="ml-2 text-xs px-2 py-1 border border-dashed border-blue-500/40 text-blue-400">LEVEL-BASED</div>
+                      </div>
+                      
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
+          {levelInstructions.map((level, index) => (
+            <motion.div 
+              key={index}
+              className="cyber-card relative overflow-hidden group"
+              whileHover={{ scale: 1.03 }}
+              transition={{ type: "spring", stiffness: 300 }}
+            >
+              {/* Hover glow effect */}
+              <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              
+              {/* Level indicator */}
+              <div className="absolute top-3 right-3 w-10 h-10 flex items-center justify-center">
+                <div className="absolute inset-0 border border-dashed border-blue-500/30 rotate-45"></div>
+                <span className="text-blue-400 font-mono font-bold">{level.level}</span>
                     </div>
-                  </div>
-                  
-                  {/* Scoring system */}
-                  <div className="md:w-80 bg-black/50 rounded-lg p-5 border border-red-500/20">
-                    <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                      <Award className="mr-2 h-5 w-5 text-red-400" />
-                      Scoring System
-                    </h3>
                     
-                    <div className="space-y-4">
-                      <div className="flex items-start">
-                        <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0" />
-                        <div>
-                          <p className="text-green-400 font-bold">Correct Actions</p>
-                          <p className="text-gray-400 text-sm">+100 points for each safe interaction</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start">
-                        <XCircle className="h-5 w-5 text-red-500 mr-3 flex-shrink-0" />
-                        <div>
-                          <p className="text-red-400 font-bold">Wrong Actions</p>
-                          <p className="text-gray-400 text-sm">-50 points for falling for phishing attempts</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start">
-                        <Clock className="h-5 w-5 text-blue-500 mr-3 flex-shrink-0" />
-                        <div>
-                          <p className="text-blue-400 font-bold">Time Bonus</p>
-                          <p className="text-gray-400 text-sm">Up to +200 points based on completion speed</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start">
-                        <Target className="h-5 w-5 text-purple-500 mr-3 flex-shrink-0" />
-                        <div>
-                          <p className="text-purple-400 font-bold">Level Completion</p>
-                          <p className="text-gray-400 text-sm">+300 points for completing each level</p>
-                        </div>
-                      </div>
+              <div className="p-6 relative z-10">
+                <div className="cyber-card-header mb-4 flex items-center">
+                  <div className="p-2 mr-3 rounded-md bg-gray-800/50 border border-dashed border-blue-500/20">
+                    {index === 0 ? (
+                      <Target className="w-6 h-6 text-blue-400" />
+                    ) : index === 1 ? (
+                      <ShieldAlert className="w-6 h-6 text-green-400" />
+                    ) : (
+                      <AlertTriangle className="w-6 h-6 text-orange-400" />
+                    )}
                     </div>
-                    
-                    <div className="mt-5 pt-5 border-t border-gray-800">
-                      <p className="text-gray-300 text-sm italic">
-                        Remember: In real cybersecurity, a single mistake can be costly. Train to achieve a perfect record!
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                  <div>
+                    <div className="text-xs text-blue-400 mb-1 font-mono">LEVEL {level.level}</div>
+                    <h3 className="text-xl font-bold text-white">{level.title}</h3>
               </div>
             </div>
             
-            {/* Level details with tabs */}
-            <div className="mb-12">
-              <h2 className="text-2xl font-bold text-white mb-6">Training Levels</h2>
-              
-              <div className="flex border-b border-gray-800">
-                {levelInstructions.map((level, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedLevel(index)}
-                    className={`px-6 py-3 text-sm font-medium transition-colors ${
-                      selectedLevel === index
-                        ? "text-red-500 border-b-2 border-red-500"
-                        : "text-gray-400 hover:text-gray-300"
-                    }`}
-                  >
-                    Level {index + 1}
-                  </button>
-                ))}
-              </div>
-              
-              <AnimatePresence mode="wait">
-                {selectedLevel !== null && (
-                  <motion.div
-                    key={selectedLevel}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.3 }}
-                    className="bg-gray-900/30 p-6 rounded-lg mt-6"
-                  >
-                    <h3 className="text-xl font-bold text-white mb-2">
-                      {levelInstructions[selectedLevel].title}
-                    </h3>
-                    <p className="text-gray-300 mb-4">
-                      {levelInstructions[selectedLevel].description}
-                    </p>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                      <div>
-                        <h4 className="text-red-400 text-sm font-bold uppercase mb-2">Skills Trained</h4>
-                        <ul className="space-y-1">
-                          {levelInstructions[selectedLevel].skills.map((skill, idx) => (
-                            <li key={idx} className="text-gray-300 text-sm flex items-start">
-                              <div className="h-1.5 w-1.5 rounded-full bg-red-500 mt-1.5 mr-2"></div>
-                              {skill}
-                            </li>
+                {/* Decorative line */}
+                <div className="w-full h-px bg-gradient-to-r from-blue-500/0 via-blue-500/30 to-blue-500/0 mb-4"></div>
+                
+                <p className="text-gray-300 mb-4">{level.description}</p>
+                
+                <div className="mb-4">
+                  <h4 className="text-sm uppercase tracking-wider text-gray-400 mb-2 flex items-center">
+                    <Brain className="w-4 h-4 mr-1" /> Skills Trained
+                  </h4>
+                  <div className="border border-dashed border-blue-500/30 rounded-md p-3 bg-gray-800/30 backdrop-blur-sm">
+                    <ul className="list-disc pl-5 text-gray-300 space-y-1">
+                      {level.skills.map((skill, idx) => (
+                        <li key={idx}>{skill}</li>
                           ))}
                         </ul>
+                  </div>
                       </div>
                       
                       <div>
-                        <h4 className="text-red-400 text-sm font-bold uppercase mb-2">Pro Tips</h4>
-                        <ul className="space-y-1">
-                          {levelInstructions[selectedLevel].tips.map((tip, idx) => (
-                            <li key={idx} className="text-gray-300 text-sm flex items-start">
-                              <div className="h-1.5 w-1.5 rounded-full bg-red-500 mt-1.5 mr-2"></div>
-                              {tip}
-                            </li>
+                  <h4 className="text-sm uppercase tracking-wider text-gray-400 mb-2 flex items-center">
+                    <Eye className="w-4 h-4 mr-1" /> Pro Tips
+                  </h4>
+                  <div className="border border-dashed border-green-500/30 rounded-md p-3 bg-gray-800/30 backdrop-blur-sm">
+                    <ul className="list-disc pl-5 text-gray-300 space-y-1">
+                      {level.tips.map((tip, idx) => (
+                        <li key={idx}>{tip}</li>
                           ))}
                         </ul>
                       </div>
                     </div>
                     
-                    <div className="mt-6 flex justify-end">
-                      <Link href={selectedLevel === 2 ? `/phising-traning/level3` : `/phising-traning/level-${selectedLevel + 1}`}>
-                        <button className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 font-medium rounded-md transition-colors flex items-center">
-                          Start Level {selectedLevel + 1}
-                          <ChevronRight className="ml-1 h-4 w-4" />
-                        </button>
+                <Link href={`/phising-traning/level-${level.level}`} className="mt-6 w-full cyber-button flex items-center justify-center py-3 px-4 group relative overflow-hidden">
+                  <span className="relative z-10 font-medium">
+                    Start Level {level.level}
+                    <ChevronRight className="ml-2 w-5 h-5 inline group-hover:translate-x-1 transition-transform" />
+                  </span>
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/30 to-blue-500/0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                       </Link>
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
               
-              {selectedLevel === null && (
-                <div className="bg-gray-900/30 p-6 rounded-lg mt-6 text-center">
-                  <p className="text-gray-400">Select a level above to view details</p>
+              {/* Corner decorative elements */}
+              <div className="absolute bottom-0 right-0 w-16 h-16 border-r-2 border-b-2 border-dashed border-blue-500/30"></div>
+              <div className="absolute top-0 left-0 w-16 h-16 border-l-2 border-t-2 border-dashed border-blue-500/30"></div>
+            </motion.div>
+          ))}
                 </div>
-              )}
-            </div>
-            
-            {/* Leaderboard section */}
-            <div className="mb-12">
-              <div className="flex items-center mb-6">
-                <Trophy className="h-6 w-6 text-amber-500 mr-3" />
-                <h2 className="text-2xl font-bold text-white">Leaderboard</h2>
-              </div>
-              
-              {isLoading ? (
-                <div className="flex justify-center py-12">
-                  <div className="animate-spin h-8 w-8 border-2 border-red-500 border-t-transparent rounded-full"></div>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-gray-900/50 border-b border-gray-800">
-                        <th className="p-3 text-left text-gray-400 font-medium">Rank</th>
-                        <th className="p-3 text-left text-gray-400 font-medium">Player</th>
-                        <th className="p-3 text-center text-gray-400 font-medium">Level 1</th>
-                        <th className="p-3 text-center text-gray-400 font-medium">Level 2</th>
-                        <th className="p-3 text-center text-gray-400 font-medium">Level 3</th>
-                        <th className="p-3 text-right text-gray-400 font-medium">Total Score</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {leaderboardData.sort((a, b) => b.totalScore - a.totalScore).map((entry, index) => (
-                        <tr 
-                          key={entry.id} 
-                          className={`border-b border-gray-800 hover:bg-gray-900/30 ${
-                            index === 0 ? 'bg-amber-900/10' : 
-                            index === 1 ? 'bg-gray-400/10' : 
-                            index === 2 ? 'bg-amber-700/10' : ''
-                          }`}
-                        >
-                          <td className="p-3 text-left">
-                            <div className="flex items-center">
-                              {index === 0 ? (
-                                <Medal className="h-5 w-5 text-amber-500 mr-1" />
-                              ) : index === 1 ? (
-                                <Medal className="h-5 w-5 text-gray-400 mr-1" />
-                              ) : index === 2 ? (
-                                <Medal className="h-5 w-5 text-amber-700 mr-1" />
-                              ) : (
-                                <span className="text-gray-500 w-5 text-center mr-1">{index + 1}</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-3 text-left text-white font-medium">{entry.name}</td>
-                          <td className="p-3 text-center">
-                            <div className="flex flex-col items-center">
-                              <span className={`font-medium ${entry.level1.completed ? 'text-green-500' : 'text-gray-500'}`}>
-                                {entry.level1.score}
-                              </span>
-                              <div className="text-xs text-gray-500 mt-1">
-                                <span title="Time">{formatTime(entry.level1.time)}</span>
-                                <span className="mx-1">•</span>
-                                <span title="Correct/Wrong">{entry.level1.correctClicks}/{entry.level1.wrongClicks}</span>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-3 text-center">
-                            <div className="flex flex-col items-center">
-                              <span className={`font-medium ${entry.level2.completed ? 'text-green-500' : 'text-gray-500'}`}>
-                                {entry.level2.score}
-                              </span>
-                              <div className="text-xs text-gray-500 mt-1">
-                                <span title="Time">{formatTime(entry.level2.time)}</span>
-                                <span className="mx-1">•</span>
-                                <span title="Correct/Wrong">{entry.level2.correctClicks}/{entry.level2.wrongClicks}</span>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-3 text-center">
-                            <div className="flex flex-col items-center">
-                              <span className={`font-medium ${entry.level3.completed ? 'text-green-500' : 'text-gray-500'}`}>
-                                {entry.level3.score}
-                              </span>
-                              <div className="text-xs text-gray-500 mt-1">
-                                <span title="Time">{formatTime(entry.level3.time)}</span>
-                                <span className="mx-1">•</span>
-                                <span title="Correct/Wrong">{entry.level3.correctClicks}/{entry.level3.wrongClicks}</span>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-3 text-right">
-                            <span className="text-xl font-bold text-white">{entry.totalScore}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-            
-            {/* Call to action */}
-            <div className="text-center py-10">
-              <h2 className="text-2xl font-bold text-white mb-4">Ready to Test Your Skills?</h2>
-              <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
-                Phishing attacks are becoming increasingly sophisticated. The best defense is knowledge and practice.
-                Start your training now and become a phishing defense expert!
-              </p>
-              <div className="inline-block relative">
-                <Link href="/phising-traning/level-1">
-                  <button 
-                    className="px-8 py-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors text-lg"
-                    style={{ animation: 'pulse-red 2s infinite' }}
-                  >
-                    Begin Training Mission
-                  </button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
+        
+        {/* Section removed: Player Stats, Global Leaderboard, and User Score Card were here */}
+        
       </div>
+      
+      {/* Bottom decorative element */}
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-blue-500/0 via-blue-500/30 to-blue-500/0"></div>
+      
+      {/* Floating circuit elements */}
+      <div className="absolute top-20 right-10 w-32 h-32 opacity-20 pointer-events-none">
+        <div className="absolute w-full h-full border border-dashed border-blue-500/30 rounded-full"></div>
+        <div className="absolute w-5 h-5 bg-blue-500/30 rounded-full top-0 left-1/2 transform -translate-x-1/2 animate-pulse"></div>
+        <div className="absolute w-3 h-3 bg-purple-500/30 rounded-full bottom-0 left-1/2 transform -translate-x-1/2 animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute w-24 h-24 border border-dashed border-blue-500/20 rounded-full top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
+      </div>
+      
+      <div className="absolute bottom-20 left-10 w-40 h-40 opacity-20 pointer-events-none">
+        <div className="absolute w-full h-full border border-dashed border-purple-500/30 rounded-full"></div>
+        <div className="absolute w-6 h-6 bg-purple-500/30 rounded-full top-0 left-1/2 transform -translate-x-1/2 animate-pulse"></div>
+        <div className="absolute w-4 h-4 bg-blue-500/30 rounded-full bottom-0 left-1/2 transform -translate-x-1/2 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+        <div className="absolute w-32 h-32 border border-dashed border-purple-500/20 rounded-full top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
+      </div>
+      
+      {/* Add styles for cyber spinner and scanline effect */}
+      <style jsx global>{`
+        /* Cyberpunk text glitch effect */
+        .cyberpunk-text {
+          position: relative;
+          color: white;
+          text-shadow: 0 0 5px rgba(0, 150, 255, 0.5);
+        }
+        
+        .glitch-effect {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          color: rgba(0, 150, 255, 0.5);
+          mix-blend-mode: screen;
+          opacity: 0.8;
+          display: none; /* Hide by default */
+        }
+        
+        .glitch:hover .glitch-effect {
+          display: block;
+          animation: glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
+        }
+        
+        @keyframes glitch {
+          0% {
+            transform: translate(0);
+          }
+          20% {
+            transform: translate(-2px, 2px);
+          }
+          40% {
+            transform: translate(-2px, -2px);
+          }
+          60% {
+            transform: translate(2px, 2px);
+          }
+          80% {
+            transform: translate(2px, -2px);
+          }
+          100% {
+            transform: translate(0);
+          }
+        }
+        
+        /* Cyber spinner for loading */
+        .cyber-spinner {
+          width: 36px;
+          height: 36px;
+          border: 3px solid rgba(59, 130, 246, 0.2);
+          border-top-color: rgba(59, 130, 246, 0.8);
+          border-radius: 50%;
+          animation: spin 1s ease-in-out infinite;
+          position: relative;
+        }
+        
+        .cyber-spinner::before,
+        .cyber-spinner::after {
+          content: '';
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -50%);
+          border-radius: 50%;
+        }
+        
+        .cyber-spinner::before {
+          width: 46px;
+          height: 46px;
+          border: 1px dashed rgba(59, 130, 246, 0.4);
+          animation: spin 5s linear infinite reverse;
+        }
+        
+        .cyber-spinner::after {
+          width: 26px;
+          height: 26px;
+          border: 1px dashed rgba(59, 130, 246, 0.4);
+          animation: spin 3s linear infinite;
+        }
+        
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        
+        /* Scanline effect */
+        .bg-scanline {
+          background: linear-gradient(to bottom, transparent 50%, rgba(0, 150, 255, 0.1) 50%);
+          background-size: 100% 4px;
+          background-repeat: repeat;
+          animation: scanlines 0.2s linear infinite;
+        }
+        
+        @keyframes scanlines {
+          0% {
+            background-position: 0 0;
+          }
+          100% {
+            background-position: 0 4px;
+          }
+        }
+      `}</style>
     </div>
   )
 }

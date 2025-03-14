@@ -956,12 +956,15 @@ export default function BeginnerCTFLab() {
       }
     };
     
-    // Only load completed steps if a user is logged in
-    if (user) {
+    // Only load completed steps if a user is logged in and initial load hasn't been done
+    if (user && !initialLoadDoneRef.current) {
       loadCompletedSteps();
     }
-  }, [user, labId, LAB_STEPS]);
+  }, [user]); // Remove labId and LAB_STEPS dependencies to prevent unnecessary re-renders
   
+  // Track if lab completion has been triggered
+  const labCompletionTriggeredRef = useRef(false);
+
   // Update overall progress when step status changes
   useEffect(() => {
     const completedSteps = stepStatus.filter(Boolean).length;
@@ -972,8 +975,9 @@ export default function BeginnerCTFLab() {
     if (completedSteps === stepStatus.length) {
       setShowCongrats(true);
       
-      // Mark entire lab as completed
-      if (user) {
+      // Mark entire lab as completed, but only once
+      if (user && !labCompletionTriggeredRef.current) {
+        labCompletionTriggeredRef.current = true;
         ProgressClient.completeLab(labId)
           .then(result => {
             console.log("Lab completed:", result);
@@ -981,6 +985,8 @@ export default function BeginnerCTFLab() {
           })
           .catch(error => {
             console.error("Error completing lab:", error);
+            // Reset the flag if there was an error, to allow retry
+            labCompletionTriggeredRef.current = false;
           });
       }
     }
