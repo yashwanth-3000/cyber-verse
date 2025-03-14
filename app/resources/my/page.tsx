@@ -4,22 +4,25 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Search, Plus, Tag, ExternalLink } from "lucide-react";
+import { ArrowLeft, Search, Plus, Tag, ExternalLink, CalendarIcon, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/providers/auth-provider";
 import { useRouter } from "next/navigation";
 import { getUserResources, ResourceWithStats } from "@/lib/supabase/resources";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 
 // Custom image component that handles errors
 function ResourceImage({ src, alt }: { src: string; alt: string }) {
   const [imgError, setImgError] = useState(false);
+  
   if (!src || imgError) {
     return (
-      <div className="flex items-center justify-center h-full w-full bg-gray-800 text-white">
-        <span className="text-sm font-mono">Image URL is empty</span>
+      <div className="flex items-center justify-center h-full w-full bg-black/70 text-gray-400">
+        <span className="text-sm font-mono">Resource Image</span>
       </div>
     );
   }
+  
   return (
     <Image
       src={src}
@@ -27,7 +30,10 @@ function ResourceImage({ src, alt }: { src: string; alt: string }) {
       fill
       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
       className="object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-300"
-      onError={() => setImgError(true)}
+      onError={() => {
+        console.log("Error loading my resource image");
+        setImgError(true);
+      }}
       unoptimized
     />
   );
@@ -52,32 +58,53 @@ export default function MyResourcesPage() {
     }
   }, [user, authLoading, router]);
 
-  // Fetch resources from Supabase
+  // Update the useEffect for fetching user resources
   useEffect(() => {
+    let isMounted = true;
+
     async function fetchUserResources() {
       if (!user) return;
       
       setLoading(true);
+      setError(null); // Clear any previous errors
+      
       try {
-        const { success, resources, error } = await getUserResources(user.id);
-        if (success && resources) {
-          setResources(resources);
-        } else {
-          console.error("Failed to fetch resources:", error);
-          setError("Failed to load your resources. Please try again later.");
+        console.log("Fetching user resources for:", user.id);
+        const { success, resources: fetchedResources, error: fetchError } = await getUserResources(user.id);
+        
+        // Only update state if component is still mounted
+        if (isMounted) {
+          if (success && fetchedResources) {
+            console.log(`Successfully loaded ${fetchedResources.length} user resources`);
+            setResources(fetchedResources);
+          } else {
+            console.error("Failed to fetch user resources:", fetchError);
+            setError(fetchError ? String(fetchError) : "Failed to load your resources. Please try again later.");
+            setResources([]); // Set empty array to avoid undefined
+          }
         }
       } catch (err) {
-        console.error("Error fetching resources:", err);
-        setError("An unexpected error occurred. Please try again later.");
+        console.error("Error fetching user resources:", err);
+        if (isMounted) {
+          setError("An unexpected error occurred. Please try again later.");
+          setResources([]); // Set empty array to avoid undefined
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
 
     if (user) {
       fetchUserResources();
     }
-  }, [user]);
+
+    // Cleanup function to handle component unmounting
+    return () => {
+      isMounted = false;
+    };
+  }, [user]); // Dependency on user ensures reload when user changes
 
   // Get all unique tags from resources
   const allTags = Array.from(
@@ -117,6 +144,39 @@ export default function MyResourcesPage() {
     router.push("/resources/add");
   };
 
+  // Update the refresh function to trigger auth refresh
+  const handleRefresh = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    setError(null);
+    try {
+      // Get Supabase client and refresh the auth session first
+      const supabase = createSupabaseBrowserClient();
+      
+      // This will trigger the "Auth state changed: INITIAL_SESSION" message
+      await supabase.auth.refreshSession();
+      console.log("Auth session refreshed");
+      
+      console.log("Manually refreshing user resources...");
+      const { success, resources: fetchedResources, error: fetchError } = await getUserResources(user.id);
+      
+      if (success && fetchedResources) {
+        console.log(`Successfully refreshed ${fetchedResources.length} user resources`);
+        setResources(fetchedResources);
+      } else {
+        console.error("Failed to refresh user resources:", fetchError);
+        setError(fetchError ? String(fetchError) : "Failed to refresh your resources. Please try again.");
+        setResources([]);
+      }
+    } catch (err) {
+      console.error("Error refreshing user resources:", err);
+      setError("An unexpected error occurred while refreshing. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -146,13 +206,23 @@ export default function MyResourcesPage() {
                 Browse and manage the resources you've shared with the community
               </p>
             </div>
-            <Button
-              onClick={handleAddResource}
-              className="flex items-center gap-2 px-4 py-2 bg-[#2ecc71] text-black rounded-md font-medium hover:bg-[#2ecc71]/90 transition-all duration-300 font-mono"
-            >
-              <Plus className="h-4 w-4" />
-              Share New Resource
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                onClick={handleRefresh}
+                className="flex items-center gap-2 px-3 py-2 bg-black/50 border border-[#2ecc71]/30 text-[#2ecc71] rounded-md font-medium hover:bg-[#2ecc71]/10 transition-all duration-300 font-mono"
+                disabled={loading}
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Button
+                onClick={handleAddResource}
+                className="flex items-center gap-2 px-4 py-2 bg-[#2ecc71] text-black rounded-md font-medium hover:bg-[#2ecc71]/90 transition-all duration-300 font-mono"
+              >
+                <Plus className="h-4 w-4" />
+                Share New Resource
+              </Button>
+            </div>
           </div>
 
           {/* Filter Section */}
@@ -270,62 +340,62 @@ export default function MyResourcesPage() {
               </div>
             ) : (
               sortedResources.map((resource) => (
-                <Link 
-                  key={resource.id}
-                  href={`/resources/${resource.id}`}
-                  className="group block h-96 relative rounded-lg overflow-hidden border-2 border-[#2ecc71]/30 transition-all duration-300 hover:border-[#2ecc71]/60"
-                >
-                  {/* Resource Image */}
-                  <div className="absolute inset-0 z-0">
-                    <ResourceImage src={resource.image_url} alt={resource.title} />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent" />
-                  </div>
-                  
-                  {/* Content */}
-                  <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-                    {/* Tags */}
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {resource.tags?.slice(0, 3).map((tag) => (
-                        <span
-                          key={tag}
-                          className="inline-flex items-center text-[10px] px-2 py-1 rounded-sm bg-[#2ecc71]/20 text-[#2ecc71] font-mono"
-                        >
-                          <Tag className="mr-1 h-2 w-2" />
-                          {tag}
-                        </span>
-                      ))}
-                      {(resource.tags?.length || 0) > 3 && (
-                        <span className="text-[10px] text-gray-400">+{resource.tags!.length - 3} more</span>
-                      )}
+                <div key={resource.id} className="block">
+                  <div
+                    className="bg-black/70 backdrop-blur-md rounded-lg border-2 border-[#2ecc71]/30 overflow-hidden hover:border-[#2ecc71]/70 transition-all duration-300 group shadow-lg shadow-[#2ecc71]/5 hover:shadow-[#2ecc71]/20 h-full flex flex-col cursor-pointer"
+                    onClick={() => router.push(`/resources/${resource.id}`)}
+                  >
+                    <div className="relative h-48 w-full flex-shrink-0">
+                      <ResourceImage src={resource.image_url} alt={resource.title} />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent" />
                     </div>
-                    
-                    {/* Title & Description */}
-                    <h3 className="text-lg font-bold text-white mb-1 group-hover:text-[#2ecc71] transition-colors">
-                      {resource.title}
-                    </h3>
-                    <p className="text-sm text-gray-400 mb-3 line-clamp-2">
-                      {resource.description}
-                    </p>
-                    
-                    {/* Stats & Visit Button */}
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center space-x-3 text-xs text-gray-400">
-                        <span>{new Date(resource.created_at).toLocaleDateString()}</span>
-                        <span>• {resource.upvotes_count || 0} likes</span>
+
+                    <div className="p-4 flex-1 flex flex-col">
+                      <h3 className="text-lg font-bold text-white mb-2 line-clamp-2">
+                        {resource.title}
+                      </h3>
+                      <p className="text-gray-400 text-sm mb-4 line-clamp-3">
+                        {resource.description}
+                      </p>
+
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {Array.isArray(resource.tags) && resource.tags.slice(0, 3).map((tag) => (
+                          <span
+                            key={tag}
+                            className="px-2 py-1 text-xs bg-[#2ecc71]/10 text-[#2ecc71] rounded-full flex items-center"
+                          >
+                            <Tag className="h-3 w-3 mr-1" />
+                            {tag}
+                          </span>
+                        ))}
+                        {resource.tags && resource.tags.length > 3 && (
+                          <span className="px-2 py-1 text-xs bg-[#2ecc71]/10 text-[#2ecc71] rounded-full">
+                            +{resource.tags.length - 3}
+                          </span>
+                        )}
                       </div>
-                      <a
-                        href={resource.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="access-button inline-flex items-center text-xs font-medium text-[#2ecc71] hover:text-white"
-                      >
-                        <ExternalLink className="mr-1 h-3 w-3" />
-                        Visit
-                      </a>
+
+                      <div className="mt-auto flex justify-between items-center">
+                        <span className="text-xs text-gray-500 flex items-center gap-1">
+                          <CalendarIcon className="h-3 w-3" />
+                          {new Date(resource.created_at).toLocaleDateString()}
+                        </span>
+                        <button
+                          type="button"
+                          className="access-button bg-[#2ecc71]/20 hover:bg-[#2ecc71]/30 text-[#2ecc71] px-3 py-1 rounded text-xs flex items-center gap-1 transition-colors"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            window.open(resource.url, "_blank", "noopener,noreferrer");
+                          }}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Access
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </Link>
+                </div>
               ))
             )}
           </div>

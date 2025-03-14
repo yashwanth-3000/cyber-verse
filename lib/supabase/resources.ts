@@ -32,6 +32,13 @@ export interface ResourceInput {
   tags: string[];
 }
 
+// Tag interface to match the actual database schema
+export interface Tag {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
 // Client-side functions
 export const createResource = async (resourceData: ResourceInput, userId: string) => {
   const supabase = createSupabaseBrowserClient();
@@ -70,50 +77,95 @@ export const createResource = async (resourceData: ResourceInput, userId: string
     }
 
     // 2. Process tags - first check if they exist, create if they don't
+    const processedTags = [];
+    
     for (const tagName of resourceData.tags) {
       try {
-        // Check if tag exists
-        const { data: existingTag, error: tagQueryError } = await supabase
-          .from('tags')
-          .select('id')
-          .eq('name', tagName.toLowerCase())
-          .single();
-
-        if (tagQueryError && tagQueryError.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
-          console.error('Error checking tag existence:', tagQueryError);
-          throw tagQueryError;
-        }
-
-        let tagId;
+        // Sanitize tag name to avoid URL encoding issues
+        const sanitizedTagName = tagName.toLowerCase()
+          .trim()
+          // Replace special characters and spaces with hyphens
+          .replace(/[^a-z0-9\s-]/g, '')
+          // Replace multiple spaces with single space
+          .replace(/\s+/g, ' ')
+          // Replace spaces with hyphens
+          .replace(/\s/g, '-')
+          // Remove consecutive hyphens
+          .replace(/-+/g, '-')
+          // Limit length to 30 chars
+          .substring(0, 30);
         
-        if (existingTag) {
-          tagId = existingTag.id;
-        } else {
-          // Create new tag
-          const { data: newTag, error: tagError } = await supabase
-            .from('tags')
-            .insert({ name: tagName.toLowerCase() })
-            .select()
-            .single();
-            
-          if (tagError) {
-            console.error('Error creating tag:', tagError);
-            throw tagError;
-          }
-          tagId = newTag.id;
+        // Skip empty tags
+        if (!sanitizedTagName) {
+          console.log('Skipping empty tag after sanitization');
+          continue;
         }
+        
+        console.log(`Original tag: "${tagName}" → Sanitized: "${sanitizedTagName}"`);
+        
+        // Add the sanitized tag to our processed list
+        processedTags.push(sanitizedTagName);
+        
+        try {
+          // Check if tag exists
+          const { data: existingTag, error: tagQueryError } = await supabase
+            .from('tags')
+            .select('id')
+            .eq('name', sanitizedTagName)
+            .single();
 
-        // 3. Create resource-tag association
-        const { error: resourceTagError } = await supabase
-          .from('resource_tags')
-          .insert({
-            resource_id: resource.id,
-            tag_id: tagId
-          });
+          // Handle specific 406 Not Acceptable error
+          if (tagQueryError && tagQueryError.code === '406') {
+            console.log(`406 Not Acceptable error for tag "${sanitizedTagName}", creating a new tag instead`);
+            
+            // Create new tag directly without checking for existence
+            const { data: newTag, error: tagError } = await supabase
+              .from('tags')
+              .insert({ name: sanitizedTagName })
+              .select()
+              .single();
+              
+            if (tagError) {
+              console.error('Error creating tag after 406 error:', tagError);
+              continue; // Skip to next tag instead of throwing
+            }
+            
+            // Create resource-tag association
+            await createResourceTagAssociation(resource.id, newTag.id, supabase);
+            continue;
+          }
 
-        if (resourceTagError) {
-          console.error('Error associating tag with resource:', resourceTagError);
-          throw resourceTagError;
+          // Handle other tag query errors except "no rows"
+          if (tagQueryError && tagQueryError.code !== 'PGRST116') {
+            console.error('Error checking tag existence:', tagQueryError);
+            // Continue to next tag instead of throwing
+            continue;
+          }
+
+          let tagId;
+          
+          if (existingTag) {
+            tagId = existingTag.id;
+          } else {
+            // Create new tag
+            const { data: newTag, error: tagError } = await supabase
+              .from('tags')
+              .insert({ name: sanitizedTagName })
+              .select()
+              .single();
+              
+            if (tagError) {
+              console.error('Error creating tag:', tagError);
+              continue; // Skip to next tag instead of throwing
+            }
+            tagId = newTag.id;
+          }
+
+          // Create resource-tag association
+          await createResourceTagAssociation(resource.id, tagId, supabase);
+        } catch (innerError) {
+          console.error(`Inner error processing tag "${sanitizedTagName}":`, innerError);
+          // Continue with next tag instead of failing completely
         }
       } catch (tagProcessingError) {
         console.error('Error processing tag:', tagName, tagProcessingError);
@@ -121,6 +173,7 @@ export const createResource = async (resourceData: ResourceInput, userId: string
       }
     }
 
+    console.log(`Successfully processed ${processedTags.length} tags out of ${resourceData.tags.length}`);
     return { success: true, resource };
   } catch (error) {
     console.error('Error creating resource:', error);
@@ -128,6 +181,31 @@ export const createResource = async (resourceData: ResourceInput, userId: string
       success: false, 
       error: error instanceof Error ? error.message : 'An unexpected error occurred while creating the resource'
     };
+  }
+};
+
+// Separate function to create resource-tag association
+const createResourceTagAssociation = async (
+  resourceId: string, 
+  tagId: string, 
+  supabase: ReturnType<typeof createSupabaseBrowserClient>
+): Promise<boolean> => {
+  try {
+    const { error: resourceTagError } = await supabase
+      .from('resource_tags')
+      .insert({
+        resource_id: resourceId,
+        tag_id: tagId
+      });
+
+    if (resourceTagError) {
+      console.error('Error associating tag with resource:', resourceTagError);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('Error in createResourceTagAssociation:', error);
+    return false;
   }
 };
 
@@ -173,17 +251,105 @@ export const toggleUpvote = async (resourceId: string, userId: string) => {
   const supabase = createSupabaseBrowserClient();
   
   try {
-    const { data, error } = await supabase
-      .rpc('toggle_upvote', {
-        resource_id_param: resourceId,
-        user_id_param: userId
-      });
+    // First, verify that the user is logged in with a valid session
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+      console.error('User not authenticated for upvote:', userError?.message);
+      return { 
+        success: false, 
+        error: 'User not authenticated. Please log in again.',
+        isUpvoted: false
+      };
+    }
+    
+    // Ensure the user profile exists before proceeding
+    const { success: profileSuccess, error: profileError } = await ensureProfileExists(userId);
+    if (!profileSuccess) {
+      console.error('Failed to ensure profile exists for upvote:', profileError);
+      return { 
+        success: false, 
+        error: profileError || 'Failed to ensure user profile exists',
+        isUpvoted: false 
+      };
+    }
+    
+    console.log('Toggling upvote for resource:', resourceId, 'by user:', userId);
+    
+    // Try to directly insert/delete from upvotes table as a fallback if RPC fails
+    try {
+      // First check if upvote exists
+      const { data: existingUpvote, error: checkError } = await supabase
+        .from('upvotes')
+        .select('id')
+        .eq('resource_id', resourceId)
+        .eq('user_id', userId)
+        .single();
+        
+      let isUpvoted;
       
-    if (error) throw error;
-    return { success: true, isUpvoted: data };
+      if (checkError && checkError.code !== 'PGRST116') {
+        // Try the RPC method if there's an unexpected error
+        const { data, error } = await supabase
+          .rpc('toggle_upvote', {
+            resource_id_param: resourceId,
+            user_id_param: userId
+          });
+          
+        if (error) throw error;
+        return { success: true, isUpvoted: data };
+      }
+      
+      // If upvote exists, remove it
+      if (existingUpvote) {
+        const { error: deleteError } = await supabase
+          .from('upvotes')
+          .delete()
+          .eq('resource_id', resourceId)
+          .eq('user_id', userId);
+          
+        if (deleteError) throw deleteError;
+        isUpvoted = false;
+      } 
+      // If upvote doesn't exist, add it
+      else {
+        const { error: insertError } = await supabase
+          .from('upvotes')
+          .insert({ 
+            resource_id: resourceId, 
+            user_id: userId
+          });
+          
+        if (insertError) throw insertError;
+        isUpvoted = true;
+      }
+      
+      return { success: true, isUpvoted };
+    } catch (directError) {
+      console.error('Error with direct upvote operation:', directError);
+      
+      // Final fallback: try the RPC method
+      try {
+        const { data, error } = await supabase
+          .rpc('toggle_upvote', {
+            resource_id_param: resourceId,
+            user_id_param: userId
+          });
+          
+        if (error) throw error;
+        return { success: true, isUpvoted: data };
+      } catch (rpcError) {
+        console.error('Both direct and RPC upvote methods failed:', rpcError);
+        throw rpcError;
+      }
+    }
   } catch (error) {
     console.error('Error toggling upvote:', error);
-    return { success: false, error };
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'An unexpected error occurred',
+      isUpvoted: false
+    };
   }
 };
 
@@ -303,5 +469,152 @@ export const ensureProfileExists = async (userId: string) => {
       success: false, 
       error: error instanceof Error ? error.message : 'An unexpected error occurred'
     };
+  }
+};
+
+// Add a comment to a resource
+export const addComment = async (resourceId: string, userId: string, content: string) => {
+  const supabase = createSupabaseBrowserClient();
+  
+  try {
+    // First, verify that the user is logged in with a valid session
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+      console.error('User not authenticated for comment:', userError?.message);
+      return { 
+        success: false, 
+        error: 'User not authenticated. Please log in again.' 
+      };
+    }
+    
+    // Ensure the user profile exists before proceeding
+    const { success: profileSuccess, error: profileError } = await ensureProfileExists(userId);
+    if (!profileSuccess) {
+      console.error('Failed to ensure profile exists for comment:', profileError);
+      return { 
+        success: false, 
+        error: profileError || 'Failed to ensure user profile exists' 
+      };
+    }
+    
+    console.log('Adding comment to resource:', resourceId, 'by user:', userId);
+    
+    const { data: comment, error: commentError } = await supabase
+      .from('comments')
+      .insert({
+        resource_id: resourceId,
+        user_id: userId,
+        content
+      })
+      .select('*, profiles(full_name, avatar_url)')
+      .single();
+      
+    if (commentError) {
+      console.error('Error adding comment:', commentError);
+      return { success: false, error: commentError.message };
+    }
+    
+    return { 
+      success: true, 
+      comment: {
+        id: comment.id,
+        content: comment.content,
+        author: comment.profiles?.full_name || 'Anonymous',
+        author_avatar: comment.profiles?.avatar_url,
+        date: new Date(comment.created_at).toISOString().split('T')[0]
+      } 
+    };
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'An unexpected error occurred' 
+    };
+  }
+};
+
+// Get comments for a resource
+export const getResourceComments = async (resourceId: string) => {
+  const supabase = createSupabaseBrowserClient();
+  
+  interface CommentData {
+    id: string;
+    content: string;
+    created_at: string;
+    author_name?: string;
+    author_avatar?: string;
+    profiles?: {
+      full_name: string | null;
+      avatar_url: string | null;
+    };
+  }
+  
+  interface FormattedComment {
+    id: string;
+    content: string;
+    author: string;
+    author_avatar?: string | null;
+    date: string;
+  }
+  
+  try {
+    // We can try the RPC function first
+    let success = false;
+    let comments: CommentData[] = [];
+    
+    try {
+      // Try to use the RPC function
+      const { data: rpcData, error: rpcError } = await supabase
+        .rpc('get_resource_comments', {
+          resource_id_param: resourceId
+        });
+        
+      if (!rpcError && rpcData) {
+        success = true;
+        comments = rpcData as CommentData[];
+      }
+    } catch (rpcError) {
+      console.error('RPC get_resource_comments failed, falling back to direct query:', rpcError);
+    }
+    
+    // Fallback to direct query if RPC failed
+    if (!success) {
+      const { data, error } = await supabase
+        .from('comments')
+        .select(`
+          id,
+          content,
+          created_at,
+          profiles!inner(full_name, avatar_url)
+        `)
+        .eq('resource_id', resourceId)
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+      
+      // Transform the data to match the expected format
+      comments = data.map((item: any) => ({
+        id: item.id,
+        content: item.content,
+        created_at: item.created_at,
+        author_name: item.profiles.full_name || 'Anonymous',
+        author_avatar: item.profiles.avatar_url
+      }));
+    }
+    
+    return { 
+      success: true, 
+      comments: comments.map((comment: CommentData): FormattedComment => ({
+        id: comment.id,
+        content: comment.content,
+        author: comment.author_name || 'Anonymous',
+        author_avatar: comment.author_avatar,
+        date: new Date(comment.created_at).toISOString().split('T')[0]
+      }))
+    };
+  } catch (error) {
+    console.error('Error fetching resource comments:', error);
+    return { success: false, error, comments: [] };
   }
 }; 

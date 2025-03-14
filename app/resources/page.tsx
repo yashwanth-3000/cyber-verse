@@ -4,22 +4,25 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Search, Plus, Tag, ExternalLink, ThumbsUp, Share2, User } from "lucide-react";
+import { ArrowLeft, Search, Plus, Tag, ExternalLink, ThumbsUp, Share2, User, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/supabase/use-session";
 import { useRouter } from "next/navigation";
 import { getResources, ResourceWithStats } from "@/lib/supabase/resources";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 
 // Custom image component that handles errors
 function ResourceImage({ src, alt }: { src: string; alt: string }) {
   const [imgError, setImgError] = useState(false);
+  
   if (!src || imgError) {
     return (
-      <div className="flex items-center justify-center h-full w-full bg-gray-800 text-white">
-        <span className="text-sm font-mono">Image URL is empty</span>
+      <div className="flex items-center justify-center h-full w-full bg-black/70 text-gray-400">
+        <span className="text-sm font-mono">Resource Image</span>
       </div>
     );
   }
+  
   return (
     <Image
       src={src}
@@ -27,7 +30,10 @@ function ResourceImage({ src, alt }: { src: string; alt: string }) {
       fill
       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
       className="object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-300"
-      onError={() => setImgError(true)}
+      onError={() => {
+        console.log("Error loading resource image in list view");
+        setImgError(true);
+      }}
       unoptimized
     />
   );
@@ -48,26 +54,47 @@ export default function ResourcesPage() {
 
   // Fetch resources from Supabase
   useEffect(() => {
+    let isMounted = true;
+    
     async function fetchResources() {
       setLoading(true);
+      setError(null); // Clear any previous errors
+      
       try {
-        const { success, resources, error } = await getResources();
-        if (success && resources) {
-          setResources(resources);
-        } else {
-          console.error("Failed to fetch resources:", error);
-          setError("Failed to load resources. Please try again later.");
+        console.log("Fetching resources...");
+        const { success, resources: fetchedResources, error: fetchError } = await getResources();
+        
+        // Only update state if component is still mounted
+        if (isMounted) {
+          if (success && fetchedResources && fetchedResources.length > 0) {
+            console.log(`Successfully loaded ${fetchedResources.length} resources`);
+            setResources(fetchedResources);
+          } else {
+            console.error("Failed to fetch resources:", fetchError);
+            setError(fetchError ? String(fetchError) : "Failed to load resources. Please try again later.");
+            setResources([]); // Set empty array to avoid undefined
+          }
         }
       } catch (err) {
         console.error("Error fetching resources:", err);
-        setError("An unexpected error occurred. Please try again later.");
+        if (isMounted) {
+          setError("An unexpected error occurred. Please try again later.");
+          setResources([]); // Set empty array to avoid undefined
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
 
     fetchResources();
-  }, []);
+
+    // Cleanup function to handle component unmounting
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Empty dependency array means this runs once on mount
 
   // Get all unique tags from resources
   const allTags = Array.from(
@@ -111,6 +138,44 @@ export default function ResourcesPage() {
     }
   };
 
+  // Update the refresh function to clearly trigger and log auth refresh
+  const handleRefresh = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Get Supabase client
+      const supabase = createSupabaseBrowserClient();
+      
+      console.log("Refreshing auth session...");
+      // Refresh the auth session first - this will trigger the "Auth state changed: INITIAL_SESSION" message
+      const { error: authError } = await supabase.auth.refreshSession();
+      
+      if (authError) {
+        console.warn("Auth refresh warning:", authError.message);
+      } else {
+        console.log("Auth session refreshed successfully");
+      }
+      
+      console.log("Now refreshing resources data...");
+      const { success, resources: fetchedResources, error: fetchError } = await getResources();
+      
+      if (success && fetchedResources) {
+        console.log(`Successfully refreshed ${fetchedResources.length} resources`);
+        setResources(fetchedResources);
+      } else {
+        console.error("Failed to refresh resources:", fetchError);
+        setError(fetchError ? String(fetchError) : "Failed to refresh resources. Please try again.");
+        setResources([]);
+      }
+    } catch (err) {
+      console.error("Error during refresh:", err);
+      setError("An unexpected error occurred while refreshing. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black">
       <div className="p-4 md:p-8">
@@ -132,13 +197,23 @@ export default function ResourcesPage() {
                 Discover and share valuable cybersecurity resources with the community
               </p>
             </div>
-            <Button
-              onClick={handleAddResource}
-              className="flex items-center gap-2 px-4 py-2 bg-[#2ecc71] text-black rounded-md font-medium hover:bg-[#2ecc71]/90 transition-all duration-300 font-mono"
-            >
-              <Plus className="h-4 w-4" />
-              Share Resource
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                onClick={handleRefresh}
+                className="flex items-center gap-2 px-3 py-2 bg-black/50 border border-[#2ecc71]/30 text-[#2ecc71] rounded-md font-medium hover:bg-[#2ecc71]/10 transition-all duration-300 font-mono"
+                disabled={loading}
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Button
+                onClick={handleAddResource}
+                className="flex items-center gap-2 px-4 py-2 bg-[#2ecc71] text-black rounded-md font-medium hover:bg-[#2ecc71]/90 transition-all duration-300 font-mono"
+              >
+                <Plus className="h-4 w-4" />
+                Share Resource
+              </Button>
+            </div>
           </div>
 
           {/* Filter Section */}
@@ -221,7 +296,7 @@ export default function ResourcesPage() {
               <div className="col-span-full text-center py-10">
                 <p className="text-red-500 mb-4">{error}</p>
                 <Button
-                  onClick={() => window.location.reload()}
+                  onClick={handleRefresh}
                   className="bg-[#2ecc71]/20 text-[#2ecc71] hover:bg-[#2ecc71]/30"
                 >
                   Try Again
@@ -242,21 +317,10 @@ export default function ResourcesPage() {
               </div>
             ) : (
               sortedResources.map((resource) => (
-                <Link 
-                  key={resource.id}
-                  href={`/resources/${resource.id}`}
-                  onClick={(e) => {
-                    // Prevent navigation if clicking on the Access button
-                    if ((e.target as HTMLElement).closest('.access-button')) {
-                      e.preventDefault();
-                    }
-                  }}
-                >
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="bg-black/70 backdrop-blur-md rounded-lg border-2 border-[#2ecc71]/30 overflow-hidden hover:border-[#2ecc71]/70 transition-all duration-300 group shadow-lg shadow-[#2ecc71]/5 hover:shadow-[#2ecc71]/20 cursor-pointer h-full flex flex-col"
+                <div key={resource.id} className="block">
+                  <div
+                    className="bg-black/70 backdrop-blur-md rounded-lg border-2 border-[#2ecc71]/30 overflow-hidden hover:border-[#2ecc71]/70 transition-all duration-300 group shadow-lg shadow-[#2ecc71]/5 hover:shadow-[#2ecc71]/20 h-full flex flex-col cursor-pointer"
+                    onClick={() => router.push(`/resources/${resource.id}`)}
                   >
                     <div className="relative h-48 w-full flex-shrink-0">
                       <ResourceImage src={resource.image_url} alt={resource.title} />
@@ -303,7 +367,7 @@ export default function ResourcesPage() {
                       </p>
 
                       <div className="flex flex-wrap gap-2 mb-4">
-                        {resource.tags && resource.tags.slice(0, 3).map((tag) => (
+                        {Array.isArray(resource.tags) && resource.tags.slice(0, 3).map((tag) => (
                           <span
                             key={tag}
                             className="px-2 py-1 text-xs bg-[#2ecc71]/10 text-[#2ecc71] rounded-full flex items-center"
@@ -330,10 +394,8 @@ export default function ResourcesPage() {
                         <span className="text-xs text-gray-500">
                           {new Date(resource.created_at).toLocaleDateString()}
                         </span>
-                        <a
-                          href={resource.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
                           className="access-button bg-[#2ecc71]/20 hover:bg-[#2ecc71]/30 text-[#2ecc71] px-3 py-1 rounded text-xs flex items-center gap-1 transition-colors"
                           onClick={(e) => {
                             e.preventDefault();
@@ -343,11 +405,11 @@ export default function ResourcesPage() {
                         >
                           <ExternalLink className="h-3 w-3" />
                           Access
-                        </a>
+                        </button>
                       </div>
                     </div>
-                  </motion.div>
-                </Link>
+                  </div>
+                </div>
               ))
             )}
           </div>

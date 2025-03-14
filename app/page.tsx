@@ -208,7 +208,7 @@ export default function Home() {
                 </Link>
                 {/* GitHub button with a standard style and less intense green */}
                 <Link
-                  href="https://github.com/your-repo"  // Replace with your actual GitHub repo URL
+                  href="https://github.com/yashwanth-3000/cyber-verse"  // Replace with your actual GitHub repo URL
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-block bg-[#00FF00]/5 text-[#00FF00]/80 px-8 py-4 text-sm tracking-wider rounded-sm hover:bg-[#00FF00]/10 transition-all duration-300"

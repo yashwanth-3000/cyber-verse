@@ -50,6 +50,8 @@ export default function AddResourcePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
   const [previewUrl, setPreviewUrl] = useState("");
+  const [submissionAttempts, setSubmissionAttempts] = useState(0);
+  const [lastSubmitTime, setLastSubmitTime] = useState(0);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -71,6 +73,60 @@ export default function AddResourcePage() {
       setPreviewUrl("");
     }
   }, [formData.imageUrl]);
+
+  const sanitizeUrl = (url: string): string => {
+    // Strip any leading/trailing whitespace
+    let sanitized = url.trim();
+    
+    // Remove any invisible characters or control characters
+    sanitized = sanitized.replace(/[\u0000-\u001F\u007F-\u009F\u00AD\u200B-\u200F\u2028-\u202F\uFEFF]/g, '');
+    
+    // Make sure URL has a protocol, default to https if none
+    if (!/^https?:\/\//i.test(sanitized)) {
+      sanitized = 'https://' + sanitized;
+    }
+    
+    try {
+      // Check if valid URL after sanitization
+      const urlObj = new URL(sanitized);
+      return urlObj.toString();
+    } catch (e) {
+      // If still invalid, return original but trimmed
+      return url.trim();
+    }
+  };
+
+  // Add this function to handle URL input changes
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    
+    // Don't sanitize on every keystroke, just on blur or submit
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    if (errors[name]) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  // Add this function to sanitize URLs on blur
+  const handleUrlBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    
+    if (!value.trim()) return; // Don't process empty values
+    
+    try {
+      const sanitized = sanitizeUrl(value);
+      console.log(`Sanitized ${name}:`, { original: value, sanitized });
+      setFormData(prev => ({ ...prev, [name]: sanitized }));
+    } catch (error) {
+      console.error(`Error sanitizing ${name}:`, error);
+      // Don't change the input if sanitization fails
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -108,12 +164,16 @@ export default function AddResourcePage() {
 
     if (!formData.title.trim()) {
       newErrors.title = "Title is required";
+    } else if (formData.title.length > 100) {
+      newErrors.title = "Title must be less than 100 characters";
     }
+    
     if (!formData.description.trim()) {
       newErrors.description = "Description is required";
     } else if (formData.description.length > 300) {
       newErrors.description = "Description must be less than 300 characters";
     }
+    
     if (!formData.url.trim()) {
       newErrors.url = "Resource URL is required";
     } else {
@@ -123,15 +183,25 @@ export default function AddResourcePage() {
         newErrors.url = "Please enter a valid Resource URL";
       }
     }
+    
     if (!formData.imageUrl.trim()) {
       newErrors.imageUrl = "Image URL is required";
     } else {
       try {
-        new URL(formData.imageUrl);
+        const url = new URL(formData.imageUrl);
+        
+        // Add a warning for Google images that might cause issues
+        if (formData.imageUrl.length > 200 && 
+            (url.hostname.includes('google') || 
+             url.hostname.includes('gstatic') || 
+             url.hostname.includes('googleusercontent'))) {
+          console.warn("Google image URL detected - these can sometimes cause issues");
+        }
       } catch (e) {
         newErrors.imageUrl = "Please enter a valid Image URL";
       }
     }
+    
     if (formData.tags.length === 0) {
       newErrors.tags = "At least one tag is required";
     }
@@ -140,9 +210,141 @@ export default function AddResourcePage() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Add a simple image placeholder that we can use as fallback if needed
+  const DEFAULT_PLACEHOLDER_IMAGE = "https://placehold.co/600x400/1a1a1a/2ecc71?text=Resource+Image";
+
+  // Add a function to check if an image URL is valid and accessible
+  const validateImageUrl = async (url: string): Promise<boolean> => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+      
+      const response = await fetch(url, { 
+        method: 'HEAD',
+        signal: controller.signal,
+        mode: 'no-cors' // This helps with CORS issues
+      });
+      
+      clearTimeout(timeoutId);
+      return true; // If we get here, the URL is likely valid
+    } catch (e) {
+      console.warn('Image validation warning:', e);
+      // Still return true to allow the form to submit even if image validation fails
+      // This is just a warning, not a blocker
+      return true;
+    }
+  };
+
+  // Add a function to help sanitize long image URLs
+  const processImageUrl = (url: string): string => {
+    if (!url || url.trim().length === 0) {
+      return DEFAULT_PLACEHOLDER_IMAGE;
+    }
+
+    // Remove any query parameters which often contain tracking info
+    const trimmedUrl = url.trim();
+    let sanitized = trimmedUrl;
+    
+    try {
+      // Try to create a URL object
+      const urlObj = new URL(trimmedUrl);
+      
+      // Special handling for Google's image servers - KEEP the query params
+      if (urlObj.hostname.includes('googleusercontent.com') || 
+          urlObj.hostname.includes('gstatic.com') ||
+          (urlObj.hostname.includes('google.com') && urlObj.pathname.includes('/images'))) {
+        console.log("Google image URL detected - preserving query parameters");
+        return trimmedUrl; // Return as-is, keeping query parameters
+      }
+      
+      // For non-Google URLs, we can strip query parameters if present
+      if (urlObj.search && !urlObj.hostname.includes('imgur') && !urlObj.hostname.includes('cloudfront')) {
+        console.log("Removing query parameters from non-Google image URL");
+        urlObj.search = '';
+        sanitized = urlObj.toString();
+      }
+    } catch (e) {
+      // If parsing as URL fails, just use the trimmed version
+      console.warn("Failed to parse image URL:", e);
+    }
+
+    // If the URL is extremely long even after removing query params, use placeholder
+    if (sanitized.length > 1000) { // Increased from 500 to 1000
+      console.warn("Image URL is too long, using placeholder");
+      return DEFAULT_PLACEHOLDER_IMAGE;
+    }
+    
+    return sanitized;
+  };
+
+  // Add a function to retry with placeholder on timeout
+  const retryWithPlaceholder = async () => {
+    console.log("Retrying submission with placeholder image");
+    setIsSubmitting(true);
+    setSubmitStatus("idle");
+    
+    try {
+      const sanitizedData: ResourceInput = {
+        title: formData.title.trim().substring(0, 100),
+        description: formData.description.trim().substring(0, 300),
+        url: formData.url.trim(),
+        image_url: DEFAULT_PLACEHOLDER_IMAGE,
+        tags: formData.tags.map(tag => tag.trim().toLowerCase().substring(0, 30)),
+      };
+      
+      console.log("Retrying with placeholder image:", sanitizedData);
+      
+      const { success, error, resource } = await createResource(sanitizedData, session!.user.id);
+      
+      console.log("Retry API response:", { success, error, resourceId: resource?.id });
+      
+      if (success) {
+        setSubmitStatus("success");
+        // Redirect after successful submission
+        setTimeout(() => {
+          router.push("/resources");
+        }, 2000);
+      } else {
+        console.error("Error on retry:", error);
+        setSubmitStatus("error");
+        setErrors({ form: error || "Failed to create resource even with placeholder image." });
+      }
+    } catch (error) {
+      console.error("Exception during retry:", error);
+      setSubmitStatus("error");
+      setErrors({ 
+        form: error instanceof Error 
+          ? error.message 
+          : "An unexpected error occurred during retry." 
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    
+    // Prevent multiple rapid submissions
+    const now = Date.now();
+    if (now - lastSubmitTime < 2000) {
+      console.log("Preventing rapid submission, please wait...");
+      return;
+    }
+    setLastSubmitTime(now);
+    
+    // Increment submission attempt counter for debugging
+    setSubmissionAttempts(prev => prev + 1);
+    console.log(`Submission attempt ${submissionAttempts + 1}`);
+    
+    // Log the form data for debugging
+    console.log("Form data being submitted:", JSON.stringify(formData, null, 2));
+    
+    if (!validateForm()) {
+      console.log("Form validation failed:", errors);
+      return;
+    }
+    
     setIsSubmitting(true);
     setSubmitStatus("idle");
     
@@ -153,34 +355,89 @@ export default function AddResourcePage() {
       return;
     }
     
+    // Check image URL (but don't block submission based on result)
     try {
-      const resourceData: ResourceInput = {
-        title: formData.title,
-        description: formData.description,
-        url: formData.url,
-        image_url: formData.imageUrl,
-        tags: formData.tags,
+      if (formData.imageUrl) {
+        console.log("Validating image URL...");
+        await validateImageUrl(formData.imageUrl);
+      }
+    } catch (imageError) {
+      console.warn("Image validation error:", imageError);
+      // Just log it, don't block submission
+    }
+    
+    try {
+      // Process the image URL with more robust handling
+      const processedImageUrl = processImageUrl(formData.imageUrl);
+      
+      console.log("Original image URL:", formData.imageUrl);
+      console.log("Processed image URL:", processedImageUrl);
+      console.log("Using placeholder:", processedImageUrl === DEFAULT_PLACEHOLDER_IMAGE);
+      
+      const sanitizedData: ResourceInput = {
+        title: formData.title.trim().substring(0, 100),
+        description: formData.description.trim().substring(0, 300),
+        url: formData.url.trim(),
+        image_url: processedImageUrl,
+        tags: formData.tags.map(tag => tag.trim().toLowerCase().substring(0, 30)),
       };
       
-      const { success, error } = await createResource(resourceData, session.user.id);
+      console.log("Sanitized data being sent to API:", JSON.stringify(sanitizedData, null, 2));
       
-      if (success) {
+      // Use a timeout to prevent hanging requests - increased from 10s to 20s
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("API request timeout - try using a different image URL")), 20000)
+      );
+      
+      const resourcePromise = createResource(sanitizedData, session.user.id);
+      
+      // Race the API call against a timeout
+      const result = await Promise.race([
+        resourcePromise,
+        timeoutPromise
+      ]) as { success: boolean, error?: string, resource?: any };
+      
+      console.log("API response:", { 
+        success: result.success, 
+        error: result.error, 
+        resourceId: result.resource?.id 
+      });
+      
+      if (result.success) {
         setSubmitStatus("success");
         // Redirect after successful submission
         setTimeout(() => {
           router.push("/resources");
         }, 2000);
       } else {
-        console.error("Error submitting resource:", error);
+        console.error("Error submitting resource:", result.error);
         setSubmitStatus("error");
-        setErrors({ form: error || "Failed to create resource. Please try again." });
+        setErrors({ form: result.error || "Failed to create resource. Please try again." });
       }
     } catch (error) {
-      console.error("Error submitting resource:", error);
-      setSubmitStatus("error");
-      setErrors({ form: error instanceof Error ? error.message : "An unexpected error occurred. Please try again." });
-    } finally {
-      setIsSubmitting(false);
+      console.error("Exception during submission:", error);
+      
+      // Check if it's a timeout error and specifically for Google images
+      if (
+        error instanceof Error && 
+        error.message.includes("timeout") && 
+        formData.imageUrl.includes("google") &&
+        !formData.imageUrl.includes("placeholder")
+      ) {
+        setSubmitStatus("error");
+        setErrors({ 
+          form: "The image URL is causing a timeout. This is common with Google image URLs. You can try again with the placeholder image." 
+        });
+        setIsSubmitting(false);
+      } else {
+        setSubmitStatus("error");
+        setErrors({ 
+          form: error instanceof Error 
+            ? error.message 
+            : "An unexpected error occurred. Please try again or use a different image URL." 
+        });
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -270,7 +527,8 @@ export default function AddResourcePage() {
                     id="url"
                     name="url"
                     value={formData.url}
-                    onChange={handleInputChange}
+                    onChange={handleUrlChange}
+                    onBlur={handleUrlBlur}
                     className={`w-full pl-10 pr-4 py-2 bg-black/50 border ${
                       errors.url ? "border-red-500" : "border-[#2ecc71]/20"
                     } rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#2ecc71]/50 transition-all`}
@@ -297,7 +555,8 @@ export default function AddResourcePage() {
                     id="imageUrl"
                     name="imageUrl"
                     value={formData.imageUrl}
-                    onChange={handleInputChange}
+                    onChange={handleUrlChange}
+                    onBlur={handleUrlBlur}
                     className={`w-full pl-10 pr-4 py-2 bg-black/50 border ${
                       errors.imageUrl ? "border-red-500" : "border-[#2ecc71]/20"
                     } rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#2ecc71]/50 transition-all`}
@@ -310,6 +569,26 @@ export default function AddResourcePage() {
                     {errors.imageUrl}
                   </p>
                 )}
+
+                {/* Image URL notes */}
+                <p className="mt-1 text-xs text-gray-400">
+                  Use a direct image URL. Very long URLs (from Google, social platforms, etc.) may be truncated for compatibility.
+                  {formData.imageUrl && (
+                    <button
+                      type="button"
+                      className="ml-2 text-[#2ecc71] hover:underline"
+                      onClick={() => {
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          imageUrl: DEFAULT_PLACEHOLDER_IMAGE 
+                        }));
+                        setPreviewUrl(DEFAULT_PLACEHOLDER_IMAGE);
+                      }}
+                    >
+                      Use placeholder image instead
+                    </button>
+                  )}
+                </p>
 
                 {/* Image Preview */}
                 {previewUrl && (
@@ -455,11 +734,41 @@ export default function AddResourcePage() {
                       ? "bg-red-600 text-white"
                       : "bg-[#2ecc71] text-black hover:bg-[#2ecc71]/90"
                   }`}
+                  onClick={(e) => {
+                    // Prevent rapid clicks
+                    if (isSubmitting) {
+                      e.preventDefault();
+                      return;
+                    }
+                    
+                    // Sanitize URLs one more time right before submit
+                    if (formData.url) {
+                      try {
+                        const sanitizedUrl = sanitizeUrl(formData.url);
+                        if (sanitizedUrl !== formData.url) {
+                          setFormData(prev => ({ ...prev, url: sanitizedUrl }));
+                        }
+                      } catch (error) {
+                        console.error("Error sanitizing URL on submit:", error);
+                      }
+                    }
+                    
+                    if (formData.imageUrl) {
+                      try {
+                        const sanitizedImageUrl = sanitizeUrl(formData.imageUrl);
+                        if (sanitizedImageUrl !== formData.imageUrl) {
+                          setFormData(prev => ({ ...prev, imageUrl: sanitizedImageUrl }));
+                        }
+                      } catch (error) {
+                        console.error("Error sanitizing image URL on submit:", error);
+                      }
+                    }
+                  }}
                 >
                   {isSubmitting ? (
                     <span className="flex items-center justify-center">
                       <span className="w-5 h-5 border-2 border-t-transparent border-black rounded-full animate-spin mr-2"></span>
-                      Submitting...
+                      {submissionAttempts > 1 ? "Still Submitting..." : "Submitting..."}
                     </span>
                   ) : submitStatus === "success" ? (
                     <span className="flex items-center justify-center">
@@ -476,9 +785,36 @@ export default function AddResourcePage() {
                   )}
                 </Button>
                 {submitStatus === "error" && (
-                  <p className="mt-2 text-sm text-red-500 text-center">
-                    There was an error sharing your resource. Please try again.
-                  </p>
+                  <div className="mt-2 p-3 bg-red-900/20 border border-red-900/30 rounded-md text-red-400 text-sm">
+                    <p className="font-medium">There was an error sharing your resource:</p>
+                    <p className="mt-1">{errors.form || "Unknown error. Try shortening your inputs or removing special characters."}</p>
+                    
+                    {/* Auto-detect timeout with Google images and offer one-click retry */}
+                    {errors.form && errors.form.includes("timeout") && formData.imageUrl.includes("google") && (
+                      <div className="mt-2 p-2 bg-black/30 rounded border border-yellow-900/30">
+                        <p className="text-yellow-400 text-xs mb-2">Google image URLs often cause timeouts. Try using our placeholder instead:</p>
+                        <button
+                          type="button"
+                          onClick={retryWithPlaceholder}
+                          disabled={isSubmitting}
+                          className="px-3 py-1 bg-[#2ecc71]/20 text-[#2ecc71] rounded text-xs hover:bg-[#2ecc71]/30 transition-colors"
+                        >
+                          {isSubmitting ? "Retrying..." : "Retry with placeholder image"}
+                        </button>
+                      </div>
+                    )}
+                    
+                    <div className="mt-2 text-xs text-gray-400">
+                      <p>Tips for resolving common issues:</p>
+                      <ul className="list-disc pl-5 mt-1">
+                        <li>Use shorter, direct image URLs. Copy image address directly from the source.</li>
+                        <li>If using Google Images, right-click and copy the direct image URL.</li>
+                        <li>Remove tracking parameters from URLs (everything after "?" in the URL).</li>
+                        <li>Try a different image if this one continues to cause issues.</li>
+                        <li>Use the placeholder image option for a guaranteed submission.</li>
+                      </ul>
+                    </div>
+                  </div>
                 )}
               </div>
             </form>

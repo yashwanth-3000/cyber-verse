@@ -205,7 +205,7 @@ export default function Resources() {
       title: "Cybersecurity Resources",
       description: "Discover and share valuable cybersecurity resources with the community",
       link: "/resources",
-      image: "https://i.imgur.com/hVbtsgQ.jpeg",
+      image: "/resorce.png",
       icon: <Shield className="h-6 w-6 text-[#00FF00]" />,
       buttonText: "View Resources"
     },
@@ -214,7 +214,7 @@ export default function Resources() {
       title: "Cyber-verse Chat Bot",
       description: "Your guide to the digital realm. Ask chat bot about anything about cybersecurity, hacking, defense, or technical concepts.",
       link: "/ai-chat",
-      image: "https://i.imgur.com/pjCk3R2.jpeg",
+      image: "/chat.png",
       icon: <Bot className="h-6 w-6 text-[#00FF00]" />,
       buttonText: "Chat Now"
     },
@@ -223,7 +223,7 @@ export default function Resources() {
       title: "Cyber Labs",
       description: "Hands-on cybersecurity laboratories for practicing defense techniques, attack simulations, and security hardening.",
       link: "/cyber-labs",
-      image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
+      image: "/lab.png",
       icon: <Shield className="h-6 w-6 text-[#00FF00]" />,
       buttonText: "Enter Labs"
     },
@@ -233,7 +233,7 @@ export default function Resources() {
       title: "Cyber News",
       description: "Stay informed with the latest cybersecurity news, breaches, vulnerabilities, and updates from around the world.",
       link: "/cyber-news",
-      image: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
+      image: "/news.png",
       icon: <BookOpen className="h-6 w-6 text-[#00FF00]" />,
       buttonText: "Read News"
     },
@@ -243,7 +243,7 @@ export default function Resources() {
       title: "Phishing Training",
       description: "Interactive simulation to test and improve your ability to identify and avoid phishing attacks in realistic scenarios.",
       link: "/phising-traning",
-      image: "https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
+      image: "/train.png",
       icon: <AlertTriangle className="h-6 w-6 text-[#00FF00]" />,
       buttonText: "Start Training"
     },
@@ -253,7 +253,7 @@ export default function Resources() {
       title: "Events Calendar",
       description: "Explore upcoming cybersecurity conferences, webinars, and training events from SANS and other leading organizations.",
       link: "/events-calendar",
-      image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
+      image: "/event.png",
       icon: <Calendar className="h-6 w-6 text-[#00FF00]" />,
       buttonText: "View Events"
     },

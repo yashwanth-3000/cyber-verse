@@ -6,65 +6,29 @@ import Link from "next/link";
 import Image from "next/image";
 import { 
   ArrowLeft, ExternalLink, ThumbsUp, Share2, Tag, 
-  Calendar, User, MessageSquare, Flag 
+  Calendar, User, MessageSquare, Flag, Share, RefreshCw 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/supabase/use-session";
 import { useRouter } from "next/navigation";
-import { getResourceById, getRelatedResources, toggleUpvote, ResourceWithStats } from "@/lib/supabase/resources";
+import { 
+  getResourceById, 
+  getRelatedResources, 
+  toggleUpvote, 
+  getResourceComments,
+  ResourceWithStats 
+} from "@/lib/supabase/resources";
+import ResourceComments from "@/app/components/ResourceComments";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 
-// Mock comments for now - will be replaced with actual comments from Supabase later
+// Define the Comment interface for use in the component
 interface Comment {
   id: string;
   author: string;
   content: string;
   date: string;
+  author_avatar?: string | null;
 }
-
-const MOCK_COMMENTS: Record<string, Comment[]> = {
-  "1": [
-    {
-      id: "c1",
-      author: "webdev123",
-      content: "This resource has been incredibly helpful for my team. We've integrated these principles into our development workflow.",
-      date: "2023-12-05",
-    },
-    {
-      id: "c2",
-      author: "securitynewbie",
-      content: "As someone new to web security, this was a perfect starting point. Clear explanations and practical examples.",
-      date: "2024-01-10",
-    },
-  ],
-  "2": [
-    {
-      id: "c3",
-      author: "coder42",
-      content: "This book strikes the perfect balance between theory and practice. The code examples are particularly useful.",
-      date: "2023-12-20",
-    },
-  ],
-  "3": [
-    {
-      id: "c4",
-      author: "security_student",
-      content: "This repository has been my go-to resource for finding new tools and techniques. Highly recommended!",
-      date: "2023-11-05",
-    },
-    {
-      id: "c5",
-      author: "pentester",
-      content: "I've discovered several tools here that have become essential parts of my workflow. Great curation!",
-      date: "2024-01-15",
-    },
-    {
-      id: "c6",
-      author: "cybersec_prof",
-      content: "I recommend this to all my students as a starting point for their practical exercises.",
-      date: "2024-02-01",
-    },
-  ],
-};
 
 export default function ResourceDetailPage({ params }: { params: { id: string } }) {
   const { session, loading: sessionLoading } = useSession();
@@ -76,47 +40,115 @@ export default function ResourceDetailPage({ params }: { params: { id: string } 
   const [error, setError] = useState<string | null>(null);
   const [isUpvoted, setIsUpvoted] = useState(false);
   const [upvoteLoading, setUpvoteLoading] = useState(false);
-  const [comment, setComment] = useState("");
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [showCopiedTooltip, setShowCopiedTooltip] = useState(false);
 
   // Fetch resource data
   useEffect(() => {
+    let isMounted = true;
+    
     async function fetchResourceData() {
+      if (!params.id) return;
+      
       setLoading(true);
+      setError(null); // Clear any previous errors
+      
       try {
+        console.log("Fetching resource details for:", params.id);
         // Fetch the resource
-        const { success, resource, error } = await getResourceById(params.id);
+        const { success, resource: fetchedResource, error: fetchError } = await getResourceById(params.id);
         
-        if (success && resource) {
-          setResource(resource);
+        if (!isMounted) return;
+        
+        if (success && fetchedResource) {
+          console.log("Resource loaded successfully:", fetchedResource.id);
+          setResource(fetchedResource);
           
           // Fetch related resources
-          const { success: relatedSuccess, resources: relatedData } = 
+          const { success: relatedSuccess, resources: relatedData, error: relatedError } = 
             await getRelatedResources(params.id, 3);
             
-          if (relatedSuccess && relatedData) {
-            setRelatedResources(relatedData);
+          if (isMounted) {
+            if (relatedSuccess && relatedData) {
+              console.log(`Found ${relatedData.length} related resources`);
+              setRelatedResources(relatedData);
+            } else {
+              console.warn("Failed to fetch related resources:", relatedError);
+              setRelatedResources([]);
+            }
+            
+            // Fetch real comments from Supabase
+            const { success: commentsSuccess, comments: commentsData, error: commentsError } = 
+              await getResourceComments(params.id);
+              
+            if (commentsSuccess && commentsData) {
+              console.log(`Found ${commentsData.length} comments`);
+              setComments(commentsData);
+            } else {
+              console.warn("Failed to fetch comments:", commentsError);
+              setComments([]);
+            }
           }
-          
-          // Set mock comments for now
-          setComments(MOCK_COMMENTS[params.id] || []);
         } else {
-          console.error("Failed to fetch resource:", error);
-          setError("Resource not found or could not be loaded.");
+          console.error("Failed to fetch resource:", fetchError);
+          setError("Resource not found or could not be loaded");
+          // Reset states
+          setResource(null);
+          setRelatedResources([]);
+          setComments([]);
         }
       } catch (err) {
         console.error("Error fetching resource:", err);
-        setError("An unexpected error occurred. Please try again later.");
+        if (isMounted) {
+          setError("An unexpected error occurred. Please try again later.");
+          // Reset states
+          setResource(null);
+          setRelatedResources([]);
+          setComments([]);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
 
-    if (params.id) {
-      fetchResourceData();
-    }
-  }, [params.id]);
+    fetchResourceData();
+
+    // Cleanup function to handle component unmounting
+    return () => {
+      isMounted = false;
+    };
+  }, [params.id]); // Dependency on params.id ensures reload when the ID changes
+
+  // Add a keyboard shortcut to share directly
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Ctrl+Shift+S or Cmd+Shift+S to avoid conflict with browser save
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 's') {
+        e.preventDefault(); // Prevent the browser's default action
+        
+        // Directly copy to clipboard
+        try {
+          navigator.clipboard.writeText(window.location.origin + window.location.pathname)
+            .then(() => {
+              setShowCopiedTooltip(true);
+              setTimeout(() => setShowCopiedTooltip(false), 1500);
+            });
+        } catch (err) {
+          console.error("Keyboard shortcut share failed:", err);
+        }
+      }
+    };
+    
+    // Add the event listener
+    window.addEventListener('keydown', handleKeyDown);
+    
+    // Clean up the event listener
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   const handleUpvote = async () => {
     if (!session?.user) {
@@ -150,34 +182,97 @@ export default function ResourceDetailPage({ params }: { params: { id: string } 
     }
   };
 
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
-    alert("Link copied to clipboard!");
+  // Handle new comment added through the component
+  const handleCommentAdded = (newComment: Comment) => {
+    setComments(prev => [newComment, ...prev]);
   };
 
-  const handleCommentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!session || !comment.trim()) return;
+  // Remove the old duplicate handleShare implementation and keep only the new one
+  const handleShare = () => {
+    // Don't show the tooltip again if it's already shown
+    if (showCopiedTooltip) return;
     
-    setIsSubmittingComment(true);
     try {
-      // Simulate API call for now
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Use current URL for sharing
+      const shareUrl = window.location.href;
       
-      // Add the new comment to the local state
-      const newComment: Comment = {
-        id: `temp-${Date.now()}`,
-        author: session.user?.email?.split('@')[0] || 'anonymous',
-        content: comment,
-        date: new Date().toISOString().split('T')[0],
-      };
+      // Try to use the clipboard API
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(shareUrl)
+          .then(() => {
+            setShowCopiedTooltip(true);
+            setTimeout(() => setShowCopiedTooltip(false), 2000);
+          })
+          .catch(err => {
+            console.error("Failed to copy:", err);
+            alert("Could not copy the URL. Please copy it manually.");
+          });
+      } else {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = shareUrl;
+        textarea.style.position = 'fixed';  // Prevent scrolling to the bottom
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        
+        if (successful) {
+          setShowCopiedTooltip(true);
+          setTimeout(() => setShowCopiedTooltip(false), 2000);
+        } else {
+          alert("Could not copy the URL. Please copy it manually.");
+        }
+      }
+    } catch (err) {
+      console.error("Error sharing resource:", err);
+      alert("Could not copy the URL. Please copy it manually.");
+    }
+  };
+
+  // Update the refresh function to trigger auth refresh
+  const handleRefresh = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Get Supabase client and refresh the auth session first
+      const supabase = createSupabaseBrowserClient();
       
-      setComments(prev => [newComment, ...prev]);
-      setComment('');
-    } catch (error) {
-      console.error('Error submitting comment:', error);
+      // This will trigger the "Auth state changed: INITIAL_SESSION" message
+      await supabase.auth.refreshSession();
+      console.log("Auth session refreshed");
+      
+      console.log("Manually refreshing resource data...");
+      
+      // Fetch the resource
+      const { success, resource: fetchedResource, error: fetchError } = await getResourceById(params.id);
+      
+      if (success && fetchedResource) {
+        console.log("Resource refreshed successfully:", fetchedResource.id);
+        setResource(fetchedResource);
+        
+        // Fetch related resources
+        const { resources: relatedData } = await getRelatedResources(params.id, 3);
+        if (relatedData) {
+          setRelatedResources(relatedData);
+        }
+        
+        // Fetch comments
+        const { comments: commentsData } = await getResourceComments(params.id);
+        if (commentsData) {
+          setComments(commentsData);
+        }
+      } else {
+        console.error("Failed to refresh resource:", fetchError);
+        setError("Failed to refresh resource. Please try again.");
+      }
+    } catch (err) {
+      console.error("Error refreshing resource:", err);
+      setError("An unexpected error occurred while refreshing. Please try again.");
     } finally {
-      setIsSubmittingComment(false);
+      setLoading(false);
     }
   };
 
@@ -211,13 +306,24 @@ export default function ResourceDetailPage({ params }: { params: { id: string } 
     <div className="min-h-screen bg-black font-mono">
       <div className="min-h-screen p-4 md:p-8">
         <div className="max-w-4xl mx-auto">
-          <Link
-            href="/resources"
-            className="inline-flex items-center text-[#2ecc71] hover:text-[#2ecc71]/80 transition-colors mb-8"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Resources
-          </Link>
+          <div className="flex justify-between items-center mb-8">
+            <Link
+              href="/resources"
+              className="inline-flex items-center text-[#2ecc71] hover:text-[#2ecc71]/80 transition-colors"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Resources
+            </Link>
+            
+            <Button
+              onClick={handleRefresh}
+              className="flex items-center gap-2 px-3 py-2 bg-black/50 border border-[#2ecc71]/30 text-[#2ecc71] rounded-md font-medium hover:bg-[#2ecc71]/10 transition-all duration-300 font-mono"
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -236,21 +342,22 @@ export default function ResourceDetailPage({ params }: { params: { id: string } 
             {/* Resource header with image */}
             <div className="relative h-48 md:h-64 w-full">
               <Image
-                src={resource.image_url}
-                alt={resource.title}
+                src={resource.image_url || "/placeholder.jpg"}
+                alt={resource.title || "Resource"}
                 fill
                 sizes="100vw"
                 className="object-cover"
                 unoptimized
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = "";
+                  console.log("Error loading image, using fallback");
+                  (e.target as HTMLImageElement).src = "/placeholder.jpg";
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-6">
                 <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">{resource.title}</h1>
                 <div className="flex flex-wrap gap-2 mb-3">
-                  {resource.tags && resource.tags.map(tag => (
+                  {Array.isArray(resource.tags) && resource.tags.map(tag => (
                     <span 
                       key={tag} 
                       className="px-2 py-1 text-xs bg-[#2ecc71]/10 text-[#2ecc71] rounded-full flex items-center"
@@ -267,6 +374,10 @@ export default function ResourceDetailPage({ params }: { params: { id: string } 
                         src={resource.author_avatar} 
                         alt={resource.author_name || 'Anonymous'} 
                         className="w-5 h-5 rounded-full border border-[#2ecc71]/30 mr-2"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "";
+                          (e.target as HTMLImageElement).className = "hidden";
+                        }}
                       />
                     ) : (
                       <User className="h-4 w-4 mr-2 text-[#2ecc71]" />
@@ -330,13 +441,22 @@ export default function ResourceDetailPage({ params }: { params: { id: string } 
                     <ThumbsUp className={`h-4 w-4 ${isUpvoted ? "fill-[#2ecc71]" : ""}`} />
                     <span>{resource.upvotes_count || 0} Upvotes</span>
                   </button>
-                  <button 
-                    onClick={handleShare}
-                    className="flex items-center gap-1 px-3 py-1 rounded-full text-gray-400 border border-gray-800 hover:text-[#2ecc71] hover:border-[#2ecc71]/30 transition-all duration-300"
-                  >
-                    <Share2 className="h-4 w-4" />
-                    <span>Share</span>
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={handleShare}
+                      className="flex items-center gap-1 py-1 px-3 bg-transparent border border-[#2ecc71]/30 rounded-full hover:bg-[#2ecc71]/10 transition-colors text-sm"
+                    >
+                      <Share className="h-4 w-4 text-[#2ecc71]" />
+                      <span className="text-white">Share</span>
+                    </button>
+                    
+                    {showCopiedTooltip && (
+                      <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-[#2ecc71] text-black px-3 py-1 rounded text-xs">
+                        URL Copied!
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-2 h-2 bg-[#2ecc71] rotate-45"></div>
+                      </div>
+                    )}
+                  </div>
                   <button 
                     className="flex items-center gap-1 px-3 py-1 rounded-full text-gray-400 border border-gray-800 hover:text-red-400 hover:border-red-900/30 transition-all duration-300"
                   >
@@ -348,6 +468,10 @@ export default function ResourceDetailPage({ params }: { params: { id: string } 
                   href={resource.url} 
                   target="_blank" 
                   rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent navigation to resource detail page
+                    console.log("Visiting external resource URL:", resource.url);
+                  }}
                   className="flex items-center gap-2 px-4 py-2 bg-[#2ecc71] text-black rounded-md font-medium hover:bg-[#2ecc71]/90 transition-all duration-300"
                 >
                   Visit Resource
@@ -355,74 +479,12 @@ export default function ResourceDetailPage({ params }: { params: { id: string } 
                 </a>
               </div>
 
-              {/* Comments Section */}
-              <div className="mt-12">
-                <h2 className="text-xl font-bold text-white mb-6">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5" />
-                    <span>Comments ({comments.length})</span>
-                  </div>
-                </h2>
-                
-                {comments.length > 0 ? (
-                  <div className="space-y-6">
-                    {comments.map((comment) => (
-                      <div key={comment.id} className="bg-black/50 border border-[#2ecc71]/10 rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center">
-                            <div className="w-8 h-8 rounded-full bg-[#2ecc71]/20 flex items-center justify-center text-[#2ecc71] font-bold mr-3">
-                              {comment.author.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <div className="font-semibold text-white">{comment.author}</div>
-                              <div className="text-xs text-gray-400">{comment.date}</div>
-                            </div>
-                          </div>
-                          <button className="text-gray-500 hover:text-[#2ecc71]">
-                            <Flag className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <p className="text-gray-300 text-sm">{comment.content}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 bg-black/30 rounded-lg border border-[#2ecc71]/10">
-                    <p className="text-gray-400 mb-4">No comments yet</p>
-                    <p className="text-sm text-gray-500">Be the first to share your thoughts on this resource</p>
-                  </div>
-                )}
-                
-                {/* Comment Form */}
-                <div className="mt-8">
-                  <h3 className="text-lg font-semibold text-white mb-4">Add a Comment</h3>
-                  <form onSubmit={handleCommentSubmit} className="space-y-4">
-                    <textarea
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
-                      placeholder="Share your thoughts about this resource..."
-                      className="w-full p-3 bg-black/50 border border-[#2ecc71]/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#2ecc71]/50 focus:border-transparent min-h-[120px]"
-                      required
-                    />
-                    <div className="flex justify-end">
-                      <Button
-                        type="submit"
-                        disabled={isSubmittingComment || !session}
-                        className={`bg-[#2ecc71]/20 text-[#2ecc71] hover:bg-[#2ecc71]/30 ${
-                          isSubmittingComment ? "opacity-50 cursor-not-allowed" : ""
-                        }`}
-                      >
-                        {isSubmittingComment ? "Submitting..." : "Submit Comment"}
-                      </Button>
-                    </div>
-                    {!session && (
-                      <p className="text-sm text-yellow-500 mt-2">
-                        You must be logged in to comment. <Link href="/login" className="underline">Log in</Link>
-                      </p>
-                    )}
-                  </form>
-                </div>
-              </div>
+              {/* Use ResourceComments Component */}
+              <ResourceComments 
+                resourceId={params.id}
+                comments={comments}
+                onCommentAdded={handleCommentAdded}
+              />
             </div>
           </motion.div>
 
@@ -432,29 +494,36 @@ export default function ResourceDetailPage({ params }: { params: { id: string } 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {relatedResources.length > 0 ? (
                 relatedResources.map(related => (
-                  <Link key={related.id} href={`/resources/${related.id}`}>
-                    <div className="bg-black/70 border border-[#2ecc71]/20 rounded-lg overflow-hidden hover:border-[#2ecc71]/50 transition-all duration-300 h-full flex flex-col">
+                  <div key={related.id} className="block">
+                    <div 
+                      className="bg-black/70 border border-[#2ecc71]/20 rounded-lg overflow-hidden hover:border-[#2ecc71]/50 transition-all duration-300 h-full flex flex-col cursor-pointer"
+                      onClick={() => router.push(`/resources/${related.id}`)}
+                    >
                       <div className="relative h-32 w-full">
                         <Image
-                          src={related.image_url}
-                          alt={related.title}
+                          src={related.image_url || "/placeholder.jpg"}
+                          alt={related.title || "Related resource"}
                           fill
                           sizes="(max-width: 768px) 100vw, 33vw"
                           className="object-cover"
                           unoptimized
+                          onError={(e) => {
+                            console.log("Error loading related resource image, using fallback");
+                            (e.target as HTMLImageElement).src = "/placeholder.jpg";
+                          }}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent" />
                       </div>
                       <div className="p-4 flex-1 flex flex-col">
                         <h3 className="font-bold text-white mb-2 line-clamp-2">{related.title}</h3>
                         <div className="flex flex-wrap gap-1 mt-auto">
-                          {related.tags && related.tags.slice(0, 2).map(tag => (
+                          {Array.isArray(related.tags) && related.tags.slice(0, 2).map(tag => (
                             <span key={tag} className="text-xs text-[#2ecc71]">#{tag}</span>
                           ))}
                         </div>
                       </div>
                     </div>
-                  </Link>
+                  </div>
                 ))
               ) : (
                 <div className="col-span-full text-center py-8">
