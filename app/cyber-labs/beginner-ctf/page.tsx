@@ -1057,13 +1057,126 @@ export default function BeginnerCTFLab() {
           </div>
           <span className="text-sm font-mono text-[#00FF00]">{Math.round(overallProgress)}%</span>
         </div>
-        <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
-          <motion.div 
-            className="bg-gradient-to-r from-[#00FF00]/80 to-[#00FF00] h-full scanner-animation"
-            initial={{ width: 0 }}
-            animate={{ width: `${overallProgress}%` }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-          />
+        
+        {/* Enhanced progress visualization with step indicators */}
+        <div className="relative pt-6 pb-10">
+          {/* Background track with subtle pattern */}
+          <div className="w-full bg-gradient-to-r from-gray-900 to-gray-800 h-2.5 rounded-full overflow-hidden shadow-inner relative">
+            {/* Animated pattern overlay */}
+            <div className="absolute inset-0 opacity-10">
+              <div className="w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGcgZmlsbD0iIzAwZmYwMCIgZmlsbC1ydWxlPSJldmVub2RkIj48Y2lyY2xlIGN4PSIxIiBjeT0iMSIgcj0iMSIvPjwvZz48L3N2Zz4=')]"></div>
+            </div>
+            
+            {/* Progress fill with gradient and glow effect */}
+            <motion.div 
+              className="h-full relative"
+              initial={{ width: 0 }}
+              animate={{ width: `${overallProgress}%` }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-[#00FF00]/80 via-[#00FF00] to-[#00FF00]/90 scanner-animation"></div>
+              
+              {/* Leading edge glow */}
+              <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-[#00FF00] rounded-full shadow-[0_0_10px_3px_rgba(0,255,0,0.3)] animate-pulse"></div>
+            </motion.div>
+          </div>
+          
+          {/* Step markers along the progress bar */}
+          <div className="absolute top-0 left-0 w-full flex justify-between px-1">
+            {LAB_STEPS.map((step, idx) => {
+              const isCompleted = stepStatus[idx];
+              const isCurrent = currentStep === idx;
+              
+              return (
+                <motion.div 
+                  key={idx} 
+                  className="relative flex flex-col items-center"
+                  initial={{ scale: 0.8, opacity: 0.6 }}
+                  animate={{ 
+                    scale: isCurrent ? 1.1 : 1, 
+                    opacity: 1 
+                  }}
+                  whileHover={{ scale: 1.15 }}
+                  transition={{ duration: 0.2 }}
+                  onClick={() => setCurrentStep(idx)}
+                >
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transform transition-all duration-300
+                    ${isCompleted 
+                      ? 'bg-[#00FF00] text-black shadow-[0_0_8px_2px_rgba(0,255,0,0.2)]' 
+                      : isCurrent 
+                        ? 'bg-gray-900 border-2 border-[#00FF00] text-[#00FF00] shadow-[0_0_6px_1px_rgba(0,255,0,0.1)]' 
+                        : 'bg-gray-900 border border-gray-700 text-gray-500 hover:border-[#00FF00]/30 hover:text-[#00FF00]/70'
+                    }`}
+                  >
+                    {isCompleted ? (
+                      <CheckCircle2 className="w-4 h-4" />
+                    ) : (
+                      <span className="text-xs font-semibold">{idx + 1}</span>
+                    )}
+                  </div>
+                  
+                  {/* Step name tooltip with enhanced visibility */}
+                  <div className={`absolute top-full mt-2 text-xs font-medium whitespace-nowrap px-1.5 py-0.5 rounded transition-all duration-300
+                    ${isCurrent 
+                      ? 'text-black bg-[#00FF00] shadow-[0_0_8px_rgba(0,255,0,0.3)]' 
+                      : isCompleted 
+                        ? 'text-[#00FF00] bg-[#00FF00]/10 border border-[#00FF00]/30' 
+                        : 'text-gray-400 hover:text-gray-300'}`}
+                  >
+                    {step.name}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+        
+        {/* Enhanced step navigation buttons */}
+        <div className="flex justify-between mt-3">
+          <Button
+            variant="ghost" 
+            size="sm"
+            onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
+            disabled={currentStep === 0}
+            className={`px-3 bg-black/60 backdrop-blur-sm border border-gray-800 rounded-full
+              ${currentStep === 0 
+                ? 'opacity-50 cursor-not-allowed' 
+                : 'hover:border-[#00FF00]/50 hover:text-[#00FF00] hover:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300'}`}
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Previous
+          </Button>
+          
+          <div className="flex gap-1.5 items-center">
+            {LAB_STEPS.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentStep(idx)}
+                className={`w-2 h-2 rounded-full transition-all duration-300
+                  ${currentStep === idx 
+                    ? 'bg-[#00FF00] w-3 h-3 shadow-[0_0_10px_rgba(0,255,0,0.5)]' 
+                    : stepStatus[idx]
+                      ? 'bg-[#00FF00]/40 hover:bg-[#00FF00]/60'
+                      : 'bg-gray-700 hover:bg-gray-600'
+                  }`}
+                aria-label={`Go to step ${idx + 1}`}
+              />
+            ))}
+          </div>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCurrentStep(Math.min(LAB_STEPS.length - 1, currentStep + 1))}
+            disabled={currentStep === LAB_STEPS.length - 1}
+            className={`px-3 bg-black/60 backdrop-blur-sm border border-gray-800 rounded-full
+              ${currentStep === LAB_STEPS.length - 1 
+                ? 'opacity-50 cursor-not-allowed' 
+                : 'hover:border-[#00FF00]/50 hover:text-[#00FF00] hover:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300'}`}
+          >
+            Next
+            <ChevronLeft className="h-4 w-4 ml-1 rotate-180" />
+          </Button>
         </div>
       </div>
       
