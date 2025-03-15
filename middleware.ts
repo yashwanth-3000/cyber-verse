@@ -10,18 +10,30 @@ async function createProfileWithServiceRoleInMiddleware(userId: string, email: s
     return false;
   }
 
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    }
-  );
-  
   try {
+    // Log attempt for debugging
+    console.log(`Attempting to create profile for user ${userId}`);
+    
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+    
+    // Verify connection and credentials
+    const { data: connectionTest, error: connectionError } = await supabaseAdmin.from('_prisma_migrations').select('*').limit(1);
+    if (connectionError) {
+      console.error('Failed to connect to database with service role:', connectionError);
+      return false;
+    }
+    
+    console.log('Database connection successful with service role');
+    
     // Check if profile already exists
     const { data: existingProfile, error: checkError } = await supabaseAdmin
       .from('profiles')
@@ -36,18 +48,25 @@ async function createProfileWithServiceRoleInMiddleware(userId: string, email: s
     
     // If profile already exists, return success
     if (existingProfile) {
+      console.log(`Profile for user ${userId} already exists, skipping creation`);
       return true;
     }
+    
+    // Prepare profile data with safe defaults
+    const profileData = {
+      id: userId,
+      email: email || `user-${userId.substring(0, 8)}@example.com`,
+      full_name: fullName || email?.split('@')[0] || `User ${userId.substring(0, 6)}`,
+      avatar_url: avatarUrl || '',
+      created_at: new Date().toISOString()
+    };
+    
+    console.log(`Creating profile with data:`, profileData);
     
     // Create the profile with proper error handling
     const { error: insertError } = await supabaseAdmin
       .from('profiles')
-      .insert({
-        id: userId,
-        email,
-        full_name: fullName || email.split('@')[0], // Fallback to email username if no name
-        avatar_url: avatarUrl || ''
-      });
+      .insert(profileData);
       
     if (insertError) {
       console.error('Error creating profile with service role in middleware:', insertError);
@@ -62,6 +81,7 @@ async function createProfileWithServiceRoleInMiddleware(userId: string, email: s
       return false;
     }
     
+    console.log(`Successfully created profile for user ${userId}`);
     return true;
   } catch (error) {
     console.error('Unexpected error creating profile with service role in middleware:', error);

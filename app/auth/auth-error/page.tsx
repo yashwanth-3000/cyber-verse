@@ -17,29 +17,63 @@ export default function AuthErrorPage() {
   
   // Extract error information from both query params and hash fragment
   useEffect(() => {
-    // First check query params
-    const queryError = searchParams.get("error")
-    const queryErrorCode = searchParams.get("error_code")
-    const queryErrorDescription = searchParams.get("error_description")
-    
-    // Then check hash fragment if exists
-    let hashError = null
-    let hashErrorCode = null
-    let hashErrorDescription = null
-    
-    if (typeof window !== 'undefined') {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1))
-      hashError = hashParams.get("error")
-      hashErrorCode = hashParams.get("error_code")
-      hashErrorDescription = hashParams.get("error_description")
+    function parseErrorInfo() {
+      // First check query params
+      const queryError = searchParams.get("error")
+      const queryErrorCode = searchParams.get("error_code")
+      const queryErrorDescription = searchParams.get("error_description")
+      
+      // Then check hash fragment if exists
+      let hashError = null
+      let hashErrorCode = null
+      let hashErrorDescription = null
+      
+      if (typeof window !== 'undefined') {
+        // Get the hash without the leading '#'
+        const hashString = window.location.hash.startsWith('#') 
+          ? window.location.hash.substring(1) 
+          : window.location.hash
+        
+        // Log the raw hash for debugging
+        console.log("Raw hash:", hashString)
+        
+        try {
+          // Parse the hash manually if URLSearchParams doesn't work as expected
+          const hashParts = hashString.split('&')
+          hashParts.forEach(part => {
+            const [key, value] = part.split('=')
+            if (key === 'error') hashError = decodeURIComponent(value)
+            if (key === 'error_code') hashErrorCode = decodeURIComponent(value)
+            if (key === 'error_description') hashErrorDescription = decodeURIComponent(value)
+          })
+          
+          console.log("Parsed hash manually:", { hashError, hashErrorCode, hashErrorDescription })
+        } catch (e) {
+          console.error("Error parsing hash:", e)
+        }
+      }
+      
+      // Use hash params as they're more likely to contain the real error
+      // Fall back to query params if hash params don't exist
+      setError(hashError || queryError)
+      setErrorCode(hashErrorCode || queryErrorCode)
+      setErrorDescription(hashErrorDescription || queryErrorDescription)
     }
     
-    // Use hash params as they're more likely to contain the real error
-    // Fall back to query params if hash params don't exist
-    setError(hashError || queryError)
-    setErrorCode(hashErrorCode || queryErrorCode)
-    setErrorDescription(hashErrorDescription || queryErrorDescription)
+    // Parse immediately on load
+    parseErrorInfo()
     
+    // Also set up a listener for hash changes
+    if (typeof window !== 'undefined') {
+      const handleHashChange = () => {
+        parseErrorInfo()
+      }
+      
+      window.addEventListener('hashchange', handleHashChange)
+      return () => {
+        window.removeEventListener('hashchange', handleHashChange)
+      }
+    }
   }, [searchParams])
   
   useEffect(() => {
