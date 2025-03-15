@@ -10,138 +10,227 @@ async function createProfileWithServiceRoleInMiddleware(userId: string, email: s
     return false;
   }
 
-  try {
-    // Log attempt for debugging
-    console.log(`Attempting to create profile for user ${userId} with email ${email}`);
-    
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
-    
-    // First check if the profile already exists by ID (most reliable method)
+  // Allow up to 3 retries for profile creation
+  const MAX_RETRIES = 3;
+  let retries = 0;
+  
+  // Helper function to delay execution
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  while (retries <= MAX_RETRIES) {
     try {
-      const { data: existingProfile, error: checkIdError } = await supabaseAdmin
-        .from('profiles')
-        .select('id')
-        .eq('id', userId)
-        .single();
-      
-      if (existingProfile) {
-        console.log(`Profile for user ${userId} already exists, no need to create one`);
-        return true;
+      // Log attempt for debugging
+      if (retries > 0) {
+        console.log(`Retry attempt ${retries} for user ${userId} after delay`);
+      } else {
+        console.log(`Attempting to create profile for user ${userId} with email ${email}`);
       }
       
-      if (checkIdError && checkIdError.code !== 'PGRST116') {
-        console.error('Error checking for existing profile by ID:', checkIdError);
+      const supabaseAdmin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        }
+      );
+      
+      // First check if the profile already exists by ID (most reliable method)
+      try {
+        const { data: existingProfile, error: checkIdError } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .eq('id', userId)
+          .single();
+        
+        if (existingProfile) {
+          console.log(`Profile for user ${userId} already exists, no need to create one`);
+          return true;
+        }
+        
+        if (checkIdError && checkIdError.code !== 'PGRST116') {
+          console.error('Error checking for existing profile by ID:', checkIdError);
+          console.warn('Will attempt to create profile anyway');
+        }
+      } catch (checkError) {
+        console.error('Exception checking for existing profile:', checkError);
         console.warn('Will attempt to create profile anyway');
       }
-    } catch (checkError) {
-      console.error('Exception checking for existing profile:', checkError);
-      console.warn('Will attempt to create profile anyway');
-    }
-    
-    // UPDATED APPROACH: Focus on RPC methods since they're working
-    
-    // 1. Try using the force_create_profile RPC function first (this is working in tests)
-    try {
-      console.log('Attempting profile creation via force_create_profile RPC');
       
-      const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('force_create_profile', { 
-        user_id: userId,
-        user_email: email
-      });
+      // UPDATED APPROACH: Focus on RPC methods since they're working
       
-      // Log RPC result for debugging
-      if (rpcData) {
-        console.log('RPC result:', rpcData);
-      }
-      
-      if (!rpcError) {
-        console.log(`Successfully created profile via force_create_profile RPC for user ${userId}`);
-        return true;
-      }
-      
-      // Check for ambiguity error and try the minimal version if that's the problem
-      if (rpcError.message && rpcError.message.includes('could not choose the best candidate function')) {
-        console.warn('Function ambiguity detected, trying create_minimal_profile instead');
+      // 1. Try using the create_minimal_profile RPC function first (simplest and most reliable)
+      try {
+        console.log('Attempting profile creation via create_minimal_profile RPC');
         
         const { data: minimalData, error: minimalError } = await supabaseAdmin.rpc('create_minimal_profile', { 
           user_id: userId
         });
         
-        if (!minimalError) {
-          console.log(`Successfully created profile via create_minimal_profile RPC for user ${userId}`);
+        // Log RPC result for debugging
+        if (minimalData) {
+          console.log('RPC result:', minimalData);
+          
+          // Update the email in a separate step if the minimal profile creation worked
+          if (email) {
+            try {
+              await supabaseAdmin
+                .from('profiles')
+                .update({ email: email })
+                .eq('id', userId);
+              
+              console.log(`Updated email for profile ${userId}`);
+            } catch (emailErr) {
+              console.error('Failed to update email, but profile was created:', emailErr);
+            }
+          }
+          
           return true;
         }
         
-        console.error('Minimal profile creation failed:', minimalError);
-      } else {
-        console.error('RPC profile creation failed:', rpcError);
-      }
-    } catch (rpcErr) {
-      console.error('Exception during RPC profile creation:', rpcErr);
-    }
-    
-    // 2. Fall back to direct insertion if RPC fails
-    try {
-      // Define the profile data with proper typing
-      interface ProfileData {
-        id: string;
-        email: string;
-        full_name?: string;
-        avatar_url?: string;
-      }
-      
-      const fallbackData: ProfileData = {
-        id: userId,
-        email: email || `user-${userId.substring(0, 8)}-${Date.now()}@example.com`
-      };
-      
-      // Only add optional fields if they have values
-      if (fullName) {
-        fallbackData.full_name = fullName;
+        // Check for foreign key constraint error - this means the auth.users entry isn't ready yet
+        if (minimalError && 
+           (minimalError.code === '23503' || 
+            (minimalError.message && minimalError.message.includes('violates foreign key constraint')))) {
+          
+          if (retries < MAX_RETRIES) {
+            // Wait a bit longer on each retry (exponential backoff)
+            const waitTime = Math.pow(2, retries) * 500; // 500ms, 1s, 2s
+            console.log(`Foreign key constraint error, waiting ${waitTime}ms before retry`);
+            await delay(waitTime);
+            retries++;
+            continue; // Go to next retry iteration
+          }
+        } else if (minimalError) {
+          console.error('Minimal profile creation failed:', minimalError);
+        }
+      } catch (minimalErr) {
+        console.error('Exception during minimal profile creation:', minimalErr);
       }
       
-      if (avatarUrl) {
-        fallbackData.avatar_url = avatarUrl;
-      }
-      
-      console.log('Attempting direct insertion as fallback with:', fallbackData);
-      
-      const { error: insertError } = await supabaseAdmin
-        .from('profiles')
-        .insert(fallbackData);
+      // 2. Try using the force_create_profile RPC function as fallback
+      try {
+        console.log('Attempting profile creation via force_create_profile RPC');
         
-      if (!insertError) {
-        console.log(`Successfully created profile via direct insertion for user ${userId}`);
-        return true;
+        const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('force_create_profile', { 
+          user_id: userId,
+          user_email: email
+        });
+        
+        // Log RPC result for debugging
+        if (rpcData) {
+          console.log('RPC result:', rpcData);
+        }
+        
+        if (!rpcError) {
+          console.log(`Successfully created profile via force_create_profile RPC for user ${userId}`);
+          return true;
+        }
+        
+        // Check for foreign key constraint error with this method too
+        if (rpcError && 
+           (rpcError.code === '23503' || 
+            (rpcError.message && rpcError.message.includes('violates foreign key constraint')))) {
+          
+          if (retries < MAX_RETRIES) {
+            // Wait a bit longer on each retry
+            const waitTime = Math.pow(2, retries) * 500; // 500ms, 1s, 2s
+            console.log(`Foreign key constraint error in force_create_profile, waiting ${waitTime}ms before retry`);
+            await delay(waitTime);
+            retries++;
+            continue; // Go to next retry iteration
+          }
+        } else if (rpcError.message && rpcError.message.includes('could not choose the best candidate function')) {
+          console.warn('Function ambiguity detected, this should have been fixed by the fix_function_ambiguity.sql script');
+        } else {
+          console.error('RPC profile creation failed:', rpcError);
+        }
+      } catch (rpcErr) {
+        console.error('Exception during RPC profile creation:', rpcErr);
       }
       
-      console.error('Direct insertion profile creation failed:', insertError);
-      
-      // Handle foreign key constraint specifically
-      if (insertError.code === '23503' && insertError.message.includes('violates foreign key constraint')) {
-        console.error('Foreign key violation - the user ID does not exist in auth.users');
-        return false;
+      // 3. Final attempt - direct insertion if both RPC methods failed
+      try {
+        // Define the profile data with proper typing
+        interface ProfileData {
+          id: string;
+          email: string;
+          full_name?: string;
+          avatar_url?: string;
+        }
+        
+        const fallbackData: ProfileData = {
+          id: userId,
+          email: email || `user-${userId.substring(0, 8)}-${Date.now()}@example.com`
+        };
+        
+        // Only add optional fields if they have values
+        if (fullName) {
+          fallbackData.full_name = fullName;
+        }
+        
+        if (avatarUrl) {
+          fallbackData.avatar_url = avatarUrl;
+        }
+        
+        console.log('Attempting direct insertion as fallback with:', fallbackData);
+        
+        const { error: insertError } = await supabaseAdmin
+          .from('profiles')
+          .insert(fallbackData);
+          
+        if (!insertError) {
+          console.log(`Successfully created profile via direct insertion for user ${userId}`);
+          return true;
+        }
+        
+        console.error('Direct insertion profile creation failed:', insertError);
+        
+        // Handle foreign key constraint specifically
+        if (insertError.code === '23503' && insertError.message.includes('violates foreign key constraint')) {
+          console.error('Foreign key violation - the user ID does not exist in auth.users');
+          
+          if (retries < MAX_RETRIES) {
+            // Wait a bit longer on each retry
+            const waitTime = Math.pow(2, retries) * 500; // 500ms, 1s, 2s
+            console.log(`Foreign key constraint error in direct insertion, waiting ${waitTime}ms before retry`);
+            await delay(waitTime);
+            retries++;
+            continue; // Go to next retry iteration
+          }
+        }
+      } catch (insertErr) {
+        console.error('Exception during direct insertion profile creation:', insertErr);
       }
-    } catch (insertErr) {
-      console.error('Exception during direct insertion profile creation:', insertErr);
+
+      // If we've reached here in this iteration, all attempts failed
+      retries++;
+      
+      // Only delay if we're going to retry
+      if (retries <= MAX_RETRIES) {
+        const waitTime = Math.pow(2, retries - 1) * 1000; // 1s, 2s, 4s
+        console.log(`All profile creation attempts failed, waiting ${waitTime}ms before retry ${retries}`);
+        await delay(waitTime);
+      }
+      
+    } catch (error) {
+      console.error('Unhandled exception during profile creation:', error);
+      
+      // Only retry unhandled exceptions once
+      if (retries === 0) {
+        retries++;
+        await delay(1000); // Wait 1 second before retry
+      } else {
+        return false; // Give up after one retry for unhandled exceptions
+      }
     }
-    
-    // All attempts failed
-    console.error(`All profile creation attempts failed for user ${userId}`);
-    return false;
-  } catch (error) {
-    console.error('Unhandled exception during profile creation:', error);
-    return false;
   }
+  
+  // All retries exhausted and all attempts failed
+  console.error(`All profile creation attempts failed after ${MAX_RETRIES} retries for user ${userId}`);
+  return false;
 }
 
 export async function middleware(request: NextRequest) {

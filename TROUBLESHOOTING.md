@@ -61,14 +61,21 @@ Finally, test that profile creation is working:
 - Creates a single version with proper parameter defaults
 - Adds a simpler alternative function (`create_minimal_profile`)
 
-### Foreign Key Constraint Error
+### Foreign Key Constraint Error / Timing Issues
 
-**Error message:** `insert or update on table "profiles" violates foreign key constraint "profiles_id_fkey"`
+**Error message:** `insert or update on table "profiles" violates foreign key constraint "profiles_id_fkey"` or continued database setup errors on signup
 
-**Solution:** This means you're trying to create a profile with a user ID that doesn't exist in the auth.users table. The updated middleware now:
-- Uses functions that properly check for existing users
-- Has better error handling for this specific case
-- Falls back to RPC methods that work around these constraints
+**Solution:** This is usually caused by a timing issue between when the user is created in auth.users and when we try to create their profile. We've added two solutions:
+
+1. Run the `timing_fix.sql` script which:
+   - Creates a new function with built-in retries and delays
+   - Makes the `create_minimal_profile` function more resilient
+   - Attempts to add a trigger-based notification system (if permissions allow)
+
+2. The middleware has been updated with:
+   - A retry mechanism that waits briefly between attempts
+   - Better error handling for foreign key constraints
+   - Multiple fallback approaches for profile creation
 
 ### Cannot Access System Tables
 
