@@ -1,7 +1,129 @@
 import { createSupabaseReqResClient } from "@/lib/supabase/server-client";
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = 'force-dynamic'; // Mark this route as always dynamic
+
+// Helper function to create a profile right after auth
+async function createProfileAfterAuth(userId: string, email: string) {
+  console.log("Attempting to create profile immediately after auth for user:", userId);
+  
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("Missing environment variables for profile creation");
+    return false;
+  }
+  
+  // Create admin client with service role
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  );
+  
+  // Helper function to delay execution
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  
+  // Wait a moment to ensure the auth.users record is fully created
+  // This is a critical step to avoid foreign key constraint errors
+  await delay(1500);
+  
+  // First check if profile already exists
+  try {
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (existingProfile) {
+      console.log("Profile already exists for user", userId);
+      return true;
+    }
+  } catch (err) {
+    console.error("Error checking for existing profile:", err);
+    // Continue anyway to try creating
+  }
+  
+  // Try multiple methods to create profile
+  
+  // Method 1: Try create_minimal_profile RPC
+  try {
+    const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc('create_minimal_profile', {
+      user_id: userId
+    });
+    
+    if (!rpcError) {
+      console.log("Successfully created profile in auth callback via RPC:", rpcResult);
+      
+      // Update email in a separate step if needed
+      if (email) {
+        await supabaseAdmin
+          .from('profiles')
+          .update({ email })
+          .eq('id', userId);
+      }
+      
+      return true;
+    }
+    
+    console.error("RPC profile creation failed:", rpcError);
+  } catch (rpcErr) {
+    console.error("Error in RPC profile creation:", rpcErr);
+  }
+  
+  // Method 2: Try direct insertion
+  try {
+    const { error: insertError } = await supabaseAdmin
+      .from('profiles')
+      .insert({
+        id: userId,
+        email: email || `user-${userId.substring(0, 8)}-${Date.now()}@example.com`
+      });
+    
+    if (!insertError) {
+      console.log("Successfully created profile in auth callback via direct insertion");
+      return true;
+    }
+    
+    console.error("Direct insertion failed:", insertError);
+  } catch (insertErr) {
+    console.error("Error in direct insertion:", insertErr);
+  }
+  
+  // Method 3: Last resort - Try with retries and delays
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      // Wait longer between each attempt
+      await delay(1000 * (attempt + 1));
+      
+      console.log(`Profile creation attempt ${attempt + 1} after auth`);
+      
+      const { error } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          id: userId,
+          email: `user-${userId}-${Date.now()}@fallback.com`
+        });
+      
+      if (!error) {
+        console.log(`Successfully created profile on attempt ${attempt + 1}`);
+        return true;
+      }
+      
+      console.error(`Attempt ${attempt + 1} failed:`, error);
+    } catch (err) {
+      console.error(`Error in attempt ${attempt + 1}:`, err);
+    }
+  }
+  
+  console.error("All profile creation attempts failed in auth callback");
+  return false;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -89,6 +211,23 @@ export async function GET(request: NextRequest) {
         }
         
         console.log("Successfully exchanged code for session:", !!data?.session);
+        
+        // Create profile proactively if we have a user
+        if (data?.session?.user) {
+          const { id: userId, email = '' } = data.session.user;
+          console.log("Initiating proactive profile creation for new user:", userId);
+          
+          // Don't await this - let it run in the background
+          // This way the user isn't delayed by profile creation
+          createProfileAfterAuth(userId, email)
+            .then(success => {
+              console.log("Background profile creation result:", success ? "Success" : "Failed");
+            })
+            .catch(err => {
+              console.error("Error in background profile creation:", err);
+            });
+        }
+        
         return response;
       } catch (exchangeError) {
         console.error("Exception in code exchange:", exchangeError);

@@ -99,6 +99,37 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 The service role key is especially important for profile creation. You can find it in your Supabase dashboard under:
 Project Settings → API → Project API keys → service_role secret
 
+## Last Resort Measures
+
+If you continue to encounter profile creation errors despite all the previous fixes, we have two emergency measures you can try:
+
+### 1. Run the Emergency Direct Fix Script
+
+This is a drastic approach that temporarily disables constraints to force profile creation to work:
+
+1. Go to your Supabase SQL Editor
+2. Copy and paste the contents of `migrations/emergency_direct_fix.sql`
+3. Run the script
+4. This script will:
+   - Temporarily disable triggers on the profiles table
+   - Fix or recreate the profiles table structure if needed
+   - Create more reliable profile creation functions
+   - Reset all RLS policies
+   - Grant proper privileges to the service role
+   - Re-enable all triggers
+
+### 2. Deploy the Updated Auth Callback Route
+
+We've modified the auth callback route to handle profile creation directly at the source:
+
+1. Deploy the updated code with the new `app/auth/callback/route.ts` file
+2. This enhanced callback:
+   - Waits 1.5 seconds after authentication to ensure the auth.users record is ready
+   - Tries multiple methods to create the profile
+   - Handles profile creation in the background so it doesn't block the user experience
+
+These measures directly address the timing issues between user creation in auth.users and profile creation.
+
 ## Still Having Issues?
 
 If you're still experiencing problems after following these steps:
