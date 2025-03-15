@@ -90,65 +90,10 @@ export default function AboutPage() {
     </motion.span>
   )
 
-  // Scan line effect
-  const [scanHeight, setScanHeight] = useState(5000)
-  
-  useEffect(() => {
-    // Update scan height based on window size
-    setScanHeight(window.innerHeight * 5)
-    
-    // Handle window resize
-    const handleResize = () => {
-      setScanHeight(window.innerHeight * 5)
-    }
-    
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
   return (
     <div className="min-h-screen bg-black font-mono text-white overflow-hidden relative">
-      {/* Enhanced Animated Grid Background with circuit-like patterns */}
-      <div className="fixed inset-0 z-0 pointer-events-none opacity-20">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 0.2 }}
-          transition={{ duration: 2 }}
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `radial-gradient(#00FF00 1px, transparent 1px)`,
-            backgroundSize: '30px 30px'
-          }}
-        />
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ 
-            opacity: [0.05, 0.1, 0.05],
-            scale: [0.98, 1.02, 0.98]
-          }}
-          transition={{ 
-            duration: 10, 
-            repeat: Infinity,
-            repeatType: "reverse",
-            ease: "easeInOut"
-          }}
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `radial-gradient(#00FF00 1px, transparent 1px)`,
-            backgroundSize: '50px 50px',
-            backgroundPosition: '25px 25px'
-          }}
-        />
-        
-        {/* Digital circuit pattern overlay */}
-        <div 
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg stroke='%2300FF00' stroke-width='1'%3E%3Cpath d='M40 0v80M0 40h80M25 15h10v10H25zM45 15h10v10H45zM25 45h10v10H25zM45 45h10v10H45z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-            backgroundSize: '80px 80px'
-          }}
-        />
-      </div>
+      {/* Background with minimal styling */}
+      <div className="fixed inset-0 z-0 pointer-events-none bg-black"></div>
 
       {/* Enhanced Header with scan line effect */}
       <header className="relative z-10 border-b border-dashed border-[#00FF00]/30">
@@ -208,11 +153,6 @@ export default function AboutPage() {
               transition={{ duration: 0.7, delay: 0.3 }}
               className="bg-black/50 backdrop-blur-md border border-dashed border-[#00FF00]/30 p-6 rounded-lg relative overflow-hidden"
             >
-              {/* Digital noise effect in background */}
-              <div className="absolute inset-0 opacity-5">
-                <div className="h-full w-full bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJhIiB4PSIwIiB5PSIwIj48ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9Ii43NSIgc3RpdGNoVGlsZXM9InN0aXRjaCIgdHlwZT0iZnJhY3RhbE5vaXNlIi8+PGZlQ29sb3JNYXRyaXggdHlwZT0ic2F0dXJhdGUiIHZhbHVlcz0iMCIvPjwvZmlsdGVyPjxwYXRoIGQ9Ik0wIDBoMzAwdjMwMEgweiIgZmlsdGVyPSJ1cmwoI2EpIiBvcGFjaXR5PSIuMDUiLz48L3N2Zz4=')]"></div>
-              </div>
-              
               {/* Enhanced animated accent corners */}
               <div className="absolute top-0 left-0 w-10 h-10 border-t-2 border-l-2 border-[#00FF00] opacity-60"></div>
               <div className="absolute top-0 right-0 w-10 h-10 border-t-2 border-r-2 border-[#00FF00] opacity-60"></div>
@@ -231,54 +171,14 @@ export default function AboutPage() {
                   }}
                   whileHover={{ scale: 1.05 }}
                 >
-                  {/* Smoother animated ring effects with different transform origins */}
-                  <motion.div 
-                    animate={{ 
-                      rotate: 360,
-                    }}
-                    transition={{ 
-                      duration: 25, 
-                      repeat: Infinity,
-                      ease: "linear",
-                      repeatType: "loop"
-                    }}
-                    className="absolute inset-0 rounded-full"
-                    style={{
-                      border: '1px dashed rgba(0, 255, 0, 0.3)',
-                      borderRadius: '50%',
-                      transformOrigin: "center center"
-                    }}
-                  />
-                  <motion.div 
-                    animate={{ 
-                      rotate: -360,
-                    }}
-                    transition={{ 
-                      duration: 15, 
-                      repeat: Infinity,
-                      ease: "linear"
-                    }}
-                    className="absolute inset-1 rounded-full"
-                    style={{
-                      border: '1px dashed rgba(0, 255, 0, 0.3)',
-                      borderRadius: '50%',
-                    }}
-                  />
                   <div className="w-full h-full rounded-full bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center overflow-hidden">
                     <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJibGFjayIvPjxyZWN0IHg9IjQwIiB5PSI0MCIgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiBmaWxsPSJub25lIiBzdHJva2U9InJnYmEoMCwyNTUsMCwwLjMpIiBzdHJva2Utd2lkdGg9IjEiLz48cmVjdCB4PSIzMCIgeT0iMzAiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDAsMjU1LDAsMC4yKSIgc3Ryb2tlLXdpZHRoPSIxIiBzdHJva2UtZGFzaGFycmF5PSI0LDQiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSIzMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDAsMjU1LDAsMC4xKSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9zdmc+')] opacity-20"></div>
-                    <span 
-                      className="text-[#00FF00] text-6xl font-bold relative z-10"
-                      style={{ textShadow: "0 0 10px rgba(0, 255, 0, 0.6)" }}
-                    >
-                      Y
-                    </span>
-                    {/* You can replace this with an actual image if preferred:
                     <Image 
-                      src="/path-to-your-image.jpg" 
+                      src="https://i.imgur.com/tdHUjkg.png" 
                       alt="Yashwanth"
                       fill
                       className="object-cover"
-                    /> */}
+                    />
                   </div>
                 </motion.div>
                 
@@ -317,7 +217,7 @@ export default function AboutPage() {
                   className="flex space-x-6"
                 >
                   <motion.a 
-                    href="https://github.com/yourusername" 
+                    href="https://github.com/yashwanth-3000" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-gray-400 hover:text-[#00FF00] transition-colors duration-300 relative group"
@@ -327,7 +227,7 @@ export default function AboutPage() {
                     <span className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-[1px] bg-[#00FF00] group-hover:w-full transition-all duration-300"></span>
                   </motion.a>
                   <motion.a 
-                    href="https://linkedin.com/in/yourusername" 
+                    href="https://www.linkedin.com/in/pyashwanthkrishna/" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-gray-400 hover:text-[#00FF00] transition-colors duration-300 relative group"
@@ -337,7 +237,7 @@ export default function AboutPage() {
                     <span className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-[1px] bg-[#00FF00] group-hover:w-full transition-all duration-300"></span>
                   </motion.a>
                   <motion.a 
-                    href="https://devpost.com/yourusername" 
+                    href="https://devpost.com/yashwanth-3000" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-gray-400 hover:text-[#00FF00] transition-colors duration-300 relative group"
@@ -443,9 +343,6 @@ export default function AboutPage() {
               transition={{ duration: 1.5, delay: 1 }}
               className="bg-black/50 backdrop-blur-md border border-dashed border-[#00FF00]/10 p-8 rounded-lg relative overflow-hidden"
             >
-              {/* Background circuit pattern */}
-              <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZyBzdHJva2U9InJnYmEoMCwyNTUsMCwwLjEpIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9Im5vbmUiPjxwYXRoIGQ9Ik0xMDAgNTBoMTAwTTUwIDEwMGgyMDBNMTUwIDI1MGgxMDBNNTAgMjAwaDUwTTI1MCAxNTB2MTAwTTIwMCA1MHYyMDBNNTAgMTUwdjUwIi8+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNSIvPjxjaXJjbGUgY3g9IjIwMCIgY3k9IjUwIiByPSI1Ii8+PGNpcmNsZSBjeD0iNTAiIGN5PSIxMDAiIHI9IjUiLz48Y2lyY2xlIGN4PSIyNTAiIGN5PSIxNTAiIHI9IjUiLz48Y2lyY2xlIGN4PSIxNTAiIGN5PSIyNTAiIHI9IjUiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjIwMCIgcj0iNSIvPjxjaXJjbGUgY3g9IjEwMCIgY3k9IjUwIiByPSI1Ii8+PGNpcmNsZSBjeD0iMjUwIiBjeT0iMjUwIiByPSI1Ii8+PC9nPjwvc3ZnPg==')] opacity-5"></div>
-              
               {/* Terminal header */}
               <div className="mb-6 flex items-center relative z-10">
                 <div className="flex space-x-2 mr-4">
@@ -741,38 +638,6 @@ export default function AboutPage() {
           </motion.div>
         </div>
       </footer>
-      
-      {/* Enhanced Scan line effect */}
-      <div className="fixed top-0 left-0 right-0 bottom-0 pointer-events-none z-50 overflow-hidden opacity-10">
-        <motion.div
-          className="w-full h-screen"
-          style={{
-            backgroundImage: `linear-gradient(0deg, transparent 0%, rgba(32, 128, 32, 0.2) 2%, rgba(32, 128, 32, 0.8) 3%, rgba(32, 128, 32, 0.2) 3%, transparent 100%)`,
-            backgroundSize: '100% 5px',
-            backgroundRepeat: 'repeat-y',
-            willChange: 'transform'
-          }}
-          initial={{ y: 0 }}
-          animate={{ y: -scanHeight }}
-          transition={{
-            duration: 40,
-            ease: "linear",
-            repeat: Infinity,
-            repeatType: "loop"
-          }}
-        />
-      </div>
-      
-      {/* Static noise overlay */}
-      <div className="fixed inset-0 pointer-events-none z-40 opacity-[0.015] mix-blend-overlay">
-        <div
-          className="w-full h-full"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-            backgroundSize: 'cover'
-          }}
-        />
-      </div>
     </div>
   )
 } 
