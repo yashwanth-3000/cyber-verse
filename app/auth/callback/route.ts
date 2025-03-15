@@ -1,12 +1,14 @@
 import { createSupabaseReqResClient } from "@/lib/supabase/server-client";
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = 'force-dynamic'; // Mark this route as always dynamic
+
 export async function GET(request: NextRequest) {
   try {
+    // Get the URL parameters from the request instead of using request.url directly
     const requestUrl = new URL(request.url);
-    console.log("Auth callback called with URL:", request.url);
     
-    // Check for error parameters in the request URL
+    // Check for error parameters in the URL
     const errorParam = requestUrl.searchParams.get("error");
     const errorCodeParam = requestUrl.searchParams.get("error_code");
     const errorDescParam = requestUrl.searchParams.get("error_description");
@@ -19,10 +21,10 @@ export async function GET(request: NextRequest) {
         description: errorDescParam 
       });
       
-      // Get base URL from request or environment variables
+      // Get base URL using host header and construct absolute URL
       const host = request.headers.get("host") || "";
       const protocol = host.includes("localhost") ? "http" : "https";
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || `${protocol}://${host}`;
+      const baseUrl = `${protocol}://${host}`;
       
       // Analyze the error to provide more specific guidance
       let errorHash;
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
       }
       
       // Create error URL with hash parameters to preserve error info
-      const errorUrl = new URL(`${baseUrl}/auth/auth-error`, request.url);
+      const errorUrl = new URL(`${baseUrl}/auth/auth-error`);
       errorUrl.hash = errorHash;
       
       return NextResponse.redirect(errorUrl);
@@ -55,17 +57,11 @@ export async function GET(request: NextRequest) {
     // Additional logging to help diagnose issues
     console.log("Request headers:", Object.fromEntries(request.headers.entries()));
     
-    // Get base URL from request or environment variables
+    // Get base URL using host header
     const host = request.headers.get("host") || "";
     const protocol = host.includes("localhost") ? "http" : "https";
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || `${protocol}://${host}`;
+    const baseUrl = `${protocol}://${host}`;
     console.log("Using base URL:", baseUrl);
-    console.log("Environment:", {
-      NODE_ENV: process.env.NODE_ENV,
-      NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
-      NEXT_PUBLIC_VERCEL_URL: process.env.NEXT_PUBLIC_VERCEL_URL,
-      VERCEL_URL: process.env.VERCEL_URL,
-    });
 
     if (code) {
       // Create a response that redirects to the next URL
@@ -86,7 +82,7 @@ export async function GET(request: NextRequest) {
         
         if (error) {
           console.error("Error exchanging code for session:", error.message, error);
-          const errorUrl = new URL(`${baseUrl}/auth/auth-error`, request.url);
+          const errorUrl = new URL(`${baseUrl}/auth/auth-error`);
           // Use hash fragment for error details to prevent loss during redirects
           errorUrl.hash = `error=auth_error&error_code=${error.code || 'unknown'}&error_description=${encodeURIComponent(error.message)}`;
           return NextResponse.redirect(errorUrl);
@@ -111,12 +107,12 @@ export async function GET(request: NextRequest) {
             errorMessage.includes('duplicate key') ||
             errorMessage.includes('violates')) {
           // This is likely a database error
-          const errorUrl = new URL(`${baseUrl}/auth/auth-error`, request.url);
+          const errorUrl = new URL(`${baseUrl}/auth/auth-error`);
           errorUrl.hash = `error=server_error&error_code=database_setup_error&error_description=${encodeURIComponent('The database encountered an error. This is likely a server configuration issue. Please contact support.')}`;
           return NextResponse.redirect(errorUrl);
         }
         
-        const errorUrl = new URL(`${baseUrl}/auth/auth-error`, request.url);
+        const errorUrl = new URL(`${baseUrl}/auth/auth-error`);
         // Use hash fragment for error details
         errorUrl.hash = `error=exchange_error&error_code=exception&error_description=${encodeURIComponent(
           errorDetails.message || 'An unexpected error occurred during authentication.'
@@ -129,7 +125,7 @@ export async function GET(request: NextRequest) {
 
     // Return the user to an error page with instructions
     console.log("Redirecting to error page due to missing code");
-    const errorUrl = new URL(`${baseUrl}/auth/auth-error`, request.url);
+    const errorUrl = new URL(`${baseUrl}/auth/auth-error`);
     errorUrl.hash = `error=missing_code&error_description=${encodeURIComponent('Authentication code is missing. Please try again.')}`;
     return NextResponse.redirect(errorUrl);
   } catch (error) {
@@ -142,15 +138,17 @@ export async function GET(request: NextRequest) {
     };
     console.error("Detailed error information:", JSON.stringify(errorDetails, null, 2));
     
-    // Fallback URL for errors - try to use environment variable first
-    const errorUrl = process.env.NEXT_PUBLIC_SITE_URL 
-      ? new URL(`${process.env.NEXT_PUBLIC_SITE_URL}/auth/auth-error`, request.url)
-      : new URL(`${request.headers.get("origin") || "https://cyber-verse-psi.vercel.app"}/auth/auth-error`, request.url);
+    // Use referrer or host as fallback
+    const host = request.headers.get("host") || "localhost:3000";
+    const protocol = host.includes("localhost") ? "http" : "https";
+    const baseUrl = `${protocol}://${host}`;
       
-    // Use hash fragment for error details
+    // Create error URL with hash parameters
+    const errorUrl = new URL(`${baseUrl}/auth/auth-error`);
     errorUrl.hash = `error=server_error&error_code=callback_exception&error_description=${encodeURIComponent(
       errorDetails.message || 'An unexpected server error occurred.'
     )}`;
+    
     return NextResponse.redirect(errorUrl);
   }
 } 

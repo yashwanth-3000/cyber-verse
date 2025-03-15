@@ -28,14 +28,25 @@ export async function GET(request: NextRequest) {
       }
     );
 
+    // Define the type for test results, including optional properties
+    interface TestResults {
+      connection: boolean;
+      selectAccess: boolean;
+      insertAccess: boolean;
+      rlsPolicies: boolean;
+      serviceRoleBypass: boolean;
+      tests: any[];
+      sqlToCreateTestFunctions?: string; // Optional property for SQL creation
+    }
+
     // Run a series of tests to verify the service role
-    const testResults = {
+    const testResults: TestResults = {
       connection: false,
       selectAccess: false,
       insertAccess: false,
       rlsPolicies: false,
       serviceRoleBypass: false,
-      tests: [] as any[]
+      tests: []
     };
 
     // Test 1: Basic connection - check if we can connect to the database
