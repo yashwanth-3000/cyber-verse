@@ -127,12 +127,27 @@ export async function middleware(request: NextRequest) {
 
       // If profile doesn't exist, create it using service role
       if (error && error.code === 'PGRST116') { // No rows returned
-        await createProfileWithServiceRoleInMiddleware(
+        const profileCreated = await createProfileWithServiceRoleInMiddleware(
           user.id,
           user.email || '',
           user.user_metadata?.full_name || '',
           user.user_metadata?.avatar_url || ''
         );
+        
+        // If profile creation failed, we need to handle it
+        if (!profileCreated) {
+          console.error('Failed to create profile in middleware for user:', user.id);
+          
+          // Only redirect to error page if we're not already on the error page
+          // This prevents infinite redirects
+          if (!path.includes('/auth/auth-error')) {
+            // Redirect to error page with appropriate error information in the hash
+            // We use hash because query params can be lost in redirects
+            const errorUrl = new URL('/auth/auth-error', request.url);
+            errorUrl.hash = `error=server_error&error_code=profile_creation_failed&error_description=${encodeURIComponent('Failed to create user profile. Please try again.')}`;
+            return NextResponse.redirect(errorUrl);
+          }
+        }
       }
     } catch (error) {
       console.error('Error ensuring profile exists in middleware:', error);

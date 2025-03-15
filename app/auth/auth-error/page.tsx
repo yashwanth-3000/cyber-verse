@@ -8,17 +8,45 @@ import { useEffect, useState } from "react"
 
 export default function AuthErrorPage() {
   const searchParams = useSearchParams()
-  const error = searchParams.get("error")
-  const errorCode = searchParams.get("error_code")
-  const errorDescription = searchParams.get("error_description")
+  const [error, setError] = useState<string | null>(null)
+  const [errorCode, setErrorCode] = useState<string | null>(null)
+  const [errorDescription, setErrorDescription] = useState<string | null>(null)
   
   const [errorMessage, setErrorMessage] = useState("")
   const [suggestion, setSuggestion] = useState("")
+  
+  // Extract error information from both query params and hash fragment
+  useEffect(() => {
+    // First check query params
+    const queryError = searchParams.get("error")
+    const queryErrorCode = searchParams.get("error_code")
+    const queryErrorDescription = searchParams.get("error_description")
+    
+    // Then check hash fragment if exists
+    let hashError = null
+    let hashErrorCode = null
+    let hashErrorDescription = null
+    
+    if (typeof window !== 'undefined') {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      hashError = hashParams.get("error")
+      hashErrorCode = hashParams.get("error_code")
+      hashErrorDescription = hashParams.get("error_description")
+    }
+    
+    // Use hash params as they're more likely to contain the real error
+    // Fall back to query params if hash params don't exist
+    setError(hashError || queryError)
+    setErrorCode(hashErrorCode || queryErrorCode)
+    setErrorDescription(hashErrorDescription || queryErrorDescription)
+    
+  }, [searchParams])
   
   useEffect(() => {
     // Set appropriate error messages based on the error code
     if (errorDescription) {
       setErrorMessage(errorDescription)
+      setSuggestion("Please try again with a different account or contact support if the issue persists.")
     } else if (error === "server_error" && errorCode === "unexpected_failure") {
       setErrorMessage("A database error occurred while saving user information.")
       setSuggestion("This is likely a temporary issue. Please try again, or contact support if the problem persists.")
@@ -32,6 +60,16 @@ export default function AuthErrorPage() {
       setErrorMessage("There was a problem with your authentication request.")
       setSuggestion("This could be due to an expired session or an invalid authentication code.")
     }
+  }, [error, errorCode, errorDescription])
+
+  // Debug output to help diagnose issues
+  useEffect(() => {
+    console.log("Auth error information:", { 
+      error, 
+      errorCode, 
+      errorDescription,
+      hash: typeof window !== 'undefined' ? window.location.hash : null
+    })
   }, [error, errorCode, errorDescription])
 
   return (

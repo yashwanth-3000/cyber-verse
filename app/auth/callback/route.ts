@@ -35,26 +35,36 @@ export async function GET(request: NextRequest) {
         
         if (error) {
           console.error("Error exchanging code for session:", error.message);
-          return NextResponse.redirect(new URL(`${baseUrl}/auth/auth-error?error=${encodeURIComponent(error.message)}`, request.url));
+          const errorUrl = new URL(`${baseUrl}/auth/auth-error`, request.url);
+          // Use hash fragment for error details to prevent loss during redirects
+          errorUrl.hash = `error=auth_error&error_code=${error.code || 'unknown'}&error_description=${encodeURIComponent(error.message)}`;
+          return NextResponse.redirect(errorUrl);
         }
         
         return response;
       } catch (exchangeError) {
         console.error("Exception in code exchange:", exchangeError);
-        return NextResponse.redirect(new URL(`${baseUrl}/auth/auth-error?error=exchange_error`, request.url));
+        const errorUrl = new URL(`${baseUrl}/auth/auth-error`, request.url);
+        // Use hash fragment for error details
+        errorUrl.hash = `error=exchange_error&error_description=${encodeURIComponent('An unexpected error occurred during authentication.')}`;
+        return NextResponse.redirect(errorUrl);
       }
     }
 
     // Return the user to an error page with instructions
-    return NextResponse.redirect(new URL(`${baseUrl}/auth/auth-error?error=missing_code`, request.url));
+    const errorUrl = new URL(`${baseUrl}/auth/auth-error`, request.url);
+    errorUrl.hash = `error=missing_code&error_description=${encodeURIComponent('Authentication code is missing. Please try again.')}`;
+    return NextResponse.redirect(errorUrl);
   } catch (error) {
     console.error("Unexpected error in auth callback:", error);
     
     // Fallback URL for errors - try to use environment variable first
     const errorUrl = process.env.NEXT_PUBLIC_SITE_URL 
-      ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/auth-error?error=server_error` 
-      : `${request.headers.get("origin") || "https://cyber-verse-psi.vercel.app"}/auth/auth-error?error=server_error`;
+      ? new URL(`${process.env.NEXT_PUBLIC_SITE_URL}/auth/auth-error`, request.url)
+      : new URL(`${request.headers.get("origin") || "https://cyber-verse-psi.vercel.app"}/auth/auth-error`, request.url);
       
-    return NextResponse.redirect(new URL(errorUrl, request.url));
+    // Use hash fragment for error details
+    errorUrl.hash = `error=server_error&error_description=${encodeURIComponent('An unexpected server error occurred.')}`;
+    return NextResponse.redirect(errorUrl);
   }
 } 
