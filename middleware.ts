@@ -94,43 +94,61 @@ async function createProfileWithServiceRoleInMiddleware(userId: string, email: s
       return true;
     }
     
-    // Prepare profile data with safe defaults
-    const profileData = {
+    // Prepare profile data with only required fields
+    // Let the database handle defaults for created_at and updated_at
+    const profileData: {
+      id: string;
+      email: string;
+      full_name?: string;
+      avatar_url?: string;
+    } = {
       id: userId,
-      email: email || `user-${userId.substring(0, 8)}@example.com`,
-      full_name: fullName || email?.split('@')[0] || `User ${userId.substring(0, 6)}`,
-      avatar_url: avatarUrl || '',
-      bio: '',
-      website: '',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      email: email || `user-${userId.substring(0, 8)}@example.com`
     };
+
+    // Only add optional fields if they have values
+    if (fullName) profileData.full_name = fullName;
+    if (avatarUrl) profileData.avatar_url = avatarUrl;
+
+    console.log(`Creating profile with minimal required data:`, profileData);
     
-    console.log(`Creating profile with data:`, profileData);
-    
-    // Try to create/update the profile using upsert
+    // Try to create the profile with a simplified approach
     try {
-      // Using upsert instead of insert to handle both creation and update cases
-      const { error: upsertError } = await supabaseAdmin
+      // First try a direct insert
+      const { error: insertError } = await supabaseAdmin
         .from('profiles')
-        .upsert(profileData, {
-          onConflict: 'id', // Conflict on primary key (id)
-          ignoreDuplicates: false // Update if exists
-        });
+        .insert(profileData);
+
+      if (insertError) {
+        // If insert fails due to duplicate key, try an update instead
+        if (insertError.code === '23505') { // PostgreSQL unique violation code
+          console.log('Profile already exists, updating instead...');
+          
+          const { error: updateError } = await supabaseAdmin
+            .from('profiles')
+            .update({ email: profileData.email })
+            .eq('id', profileData.id);
+            
+          if (updateError) {
+            console.error('Error updating existing profile:', updateError);
+            return false;
+          }
+          
+          console.log(`Successfully updated existing profile for user ${userId}`);
+          return true;
+        }
         
-      if (upsertError) {
-        console.error('Error upserting profile with service role in middleware:', upsertError);
-        
-        // Log specific error details to help diagnose
+        // For other errors, log details
+        console.error('Error creating profile:', insertError);
         console.error('Specific error details:', {
-          code: upsertError.code,
-          message: upsertError.message,
-          details: upsertError.details,
-          hint: upsertError.hint
+          code: insertError.code,
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint
         });
         
-        // If the error is about the table not existing, log it clearly
-        if (upsertError.message && upsertError.message.includes('does not exist')) {
+        // Check for table missing error
+        if (insertError.message && insertError.message.includes('does not exist')) {
           console.error('The profiles table does not exist. Please create it with the following SQL:');
           console.error(`
             CREATE TABLE public.profiles (
@@ -140,8 +158,8 @@ async function createProfileWithServiceRoleInMiddleware(userId: string, email: s
               avatar_url TEXT,
               bio TEXT,
               website TEXT,
-              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+              created_at TIMESTAMPTZ DEFAULT now(),
+              updated_at TIMESTAMPTZ DEFAULT now()
             );
           `);
         }
@@ -149,10 +167,10 @@ async function createProfileWithServiceRoleInMiddleware(userId: string, email: s
         return false;
       }
       
-      console.log(`Successfully upserted profile for user ${userId}`);
+      console.log(`Successfully created profile for user ${userId}`);
       return true;
-    } catch (upsertCatchError) {
-      console.error('Exception during profile upsert:', upsertCatchError);
+    } catch (error) {
+      console.error('Exception during profile creation:', error);
       return false;
     }
   } catch (insertCatchError) {

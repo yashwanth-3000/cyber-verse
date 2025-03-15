@@ -205,25 +205,32 @@ export default function AuthErrorPage() {
                 Try Logging In Again
               </Link>
               
+              {/* Show Signup button for non-database errors */}
+              {!(error === "server_error" && (
+                errorCode === "database_setup_error" || 
+                errorCode === "database_error" || 
+                errorCode === "profile_creation_failed" ||
+                errorCode === "unexpected_failure")) && (
+                <Link
+                  href="/signup"
+                  className="w-full px-4 py-2 bg-transparent border border-[#00FF00]/20 text-[#00FF00] rounded-md font-medium hover:bg-[#00FF00]/10 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#00FF00]/50 focus:ring-offset-2 focus:ring-offset-black text-center"
+                >
+                  Try Signing Up
+                </Link>
+              )}
+              
               {/* Show contact support button for database errors */}
               {(error === "server_error" && (
                 errorCode === "database_setup_error" || 
                 errorCode === "database_error" || 
                 errorCode === "profile_creation_failed" ||
-                errorCode === "unexpected_failure")) ? (
+                errorCode === "unexpected_failure")) && (
                 <a
-                  href="mailto:admin@example.com?subject=Database%20Error%20on%20CyberVerse&body=I%20encountered%20a%20database%20error%20when%20trying%20to%20log%20in.%20Error%20details:%20"
+                  href={`mailto:support@cyberverse.com?subject=CyberVerse%20Database%20Error&body=I%20encountered%20a%20database%20error%20when%20trying%20to%20log%20in.%0A%0AError%20details:%0ACode:%20${errorCode}%0ADescription:%20${errorDescription}%0A%0APlease%20help%20resolve%20this%20issue.`}
                   className="w-full px-4 py-2 bg-transparent border border-red-500/50 text-red-400 rounded-md font-medium hover:bg-red-900/20 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:ring-offset-2 focus:ring-offset-black text-center"
                 >
                   Contact Support
                 </a>
-              ) : (
-                <Link
-                  href="/signup"
-                  className="w-full px-4 py-2 bg-transparent border border-[#00FF00]/20 text-[#00FF00] rounded-md font-medium hover:bg-[#00FF00]/10 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#00FF00]/50 focus:ring-offset-2 focus:ring-offset-black text-center"
-                >
-                  Create New Account
-                </Link>
               )}
               
               <Link
