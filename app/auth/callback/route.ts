@@ -27,8 +27,11 @@ export async function GET(request: NextRequest) {
       // Analyze the error to provide more specific guidance
       let errorHash;
       
-      if (errorParam === 'server_error' && errorCodeParam === 'unexpected_failure' && 
-          errorDescParam?.includes('Database error saving new user')) {
+      if (errorParam === 'server_error' && 
+          (errorCodeParam === 'unexpected_failure' || errorCodeParam === 'database_error') && 
+          (errorDescParam?.includes('Database error saving new user') || 
+           errorDescParam?.includes('duplicate key') || 
+           errorDescParam?.includes('violates unique constraint'))) {
         // This is the specific database error when creating new profiles
         errorHash = `error=server_error&error_code=database_setup_error&error_description=${encodeURIComponent('The database could not save your user profile. This is a server configuration issue. Please contact support.')}`;
       } else {
@@ -100,6 +103,18 @@ export async function GET(request: NextRequest) {
           name: exchangeError instanceof Error ? exchangeError.name : undefined
         };
         console.error("Detailed error information:", JSON.stringify(errorDetails, null, 2));
+        
+        // Check for database-related errors
+        const errorMessage = errorDetails.message || '';
+        if (errorMessage.includes('database') || 
+            errorMessage.includes('unique constraint') || 
+            errorMessage.includes('duplicate key') ||
+            errorMessage.includes('violates')) {
+          // This is likely a database error
+          const errorUrl = new URL(`${baseUrl}/auth/auth-error`, request.url);
+          errorUrl.hash = `error=server_error&error_code=database_setup_error&error_description=${encodeURIComponent('The database encountered an error. This is likely a server configuration issue. Please contact support.')}`;
+          return NextResponse.redirect(errorUrl);
+        }
         
         const errorUrl = new URL(`${baseUrl}/auth/auth-error`, request.url);
         // Use hash fragment for error details

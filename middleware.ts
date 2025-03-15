@@ -12,7 +12,7 @@ async function createProfileWithServiceRoleInMiddleware(userId: string, email: s
 
   try {
     // Log attempt for debugging
-    console.log(`Attempting to create profile for user ${userId}`);
+    console.log(`Attempting to create profile for user ${userId} with email ${email}`);
     
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -27,70 +27,80 @@ async function createProfileWithServiceRoleInMiddleware(userId: string, email: s
     
     // First check if the profiles table exists
     try {
-      // Check if the profiles table exists by querying the information schema
-      const { data: tableExists, error: tableCheckError } = await supabaseAdmin
-        .from('information_schema.tables')
-        .select('table_name')
-        .eq('table_name', 'profiles')
-        .eq('table_schema', 'public')
-        .single();
+      // Try a direct query as a quick way to see if the table exists
+      const { error: directCheckError } = await supabaseAdmin
+        .from('profiles')
+        .select('count(*)', { count: 'exact', head: true });
       
-      if (tableCheckError) {
-        console.error('Error checking if profiles table exists:', tableCheckError);
-        // Try a different approach - check if we can query the table directly
-        const { error: directCheckError } = await supabaseAdmin
-          .from('profiles')
-          .select('count(*)', { count: 'exact', head: true });
-        
-        if (directCheckError) {
-          console.error('Error directly checking profiles table:', directCheckError);
-          console.error('The profiles table may not exist. Please create it first.');
-          return false;
-        }
-      } else if (!tableExists) {
-        console.error('Profiles table does not exist in the database');
+      if (directCheckError) {
+        console.error('Error directly checking profiles table:', directCheckError);
+        console.error('The profiles table may not exist. Please create it first.');
         return false;
       }
     } catch (schemaError) {
       console.error('Error checking schema for profiles table:', schemaError);
-      // Continue anyway, as the error might be due to permissions
+      return false;
     }
     
-    // Check if profile already exists
-    const { data: existingProfile, error: checkError } = await supabaseAdmin
+    // Check if profile already exists with this ID
+    console.log(`Checking if profile exists for user ID: ${userId}`);
+    const { data: existingProfileById, error: idCheckError } = await supabaseAdmin
       .from('profiles')
-      .select('id')
+      .select('id, email')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
       
-    if (checkError) {
-      if (checkError.code !== 'PGRST116') { // Not a "no rows returned" error
-        console.error('Error checking if profile exists in middleware:', checkError);
+    if (idCheckError && idCheckError.code !== 'PGRST116') {
+      console.error('Error checking if profile exists by ID:', idCheckError);
+      return false;
+    }
+    
+    // Check if profile already exists with this email but different ID
+    if (email) {
+      console.log(`Checking if profile exists for email: ${email}`);
+      const { data: existingProfileByEmail, error: emailCheckError } = await supabaseAdmin
+        .from('profiles')
+        .select('id, email')
+        .eq('email', email)
+        .neq('id', userId)  // Exclude the current user ID
+        .maybeSingle();
         
-        // If the error is about the table not existing, log it clearly
-        if (checkError.message && checkError.message.includes('does not exist')) {
-          console.error('The profiles table does not exist. Please create it with the following SQL:');
-          console.error(`
-            CREATE TABLE public.profiles (
-              id UUID PRIMARY KEY REFERENCES auth.users(id),
-              email TEXT,
-              full_name TEXT,
-              avatar_url TEXT,
-              bio TEXT,
-              website TEXT,
-              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-            );
-          `);
+      if (emailCheckError && emailCheckError.code !== 'PGRST116') {
+        console.error('Error checking if profile exists by email:', emailCheckError);
+        return false;
+      }
+      
+      // If the email is already used by another profile, use a different email
+      if (existingProfileByEmail) {
+        console.log(`Email ${email} is already used by another profile, using generated email`);
+        email = `user-${userId.substring(0, 8)}@example.com`;
+      }
+    } else {
+      // Ensure we have a valid email
+      email = `user-${userId.substring(0, 8)}@example.com`;
+    }
+    
+    // Handle existing profile
+    if (existingProfileById) {
+      console.log(`Profile for user ${userId} already exists, updating if needed`);
+      
+      // Only update if the email is different
+      if (existingProfileById.email !== email) {
+        const { error: updateError } = await supabaseAdmin
+          .from('profiles')
+          .update({ email })
+          .eq('id', userId);
+          
+        if (updateError) {
+          console.error('Error updating existing profile:', updateError);
           return false;
         }
         
-        return false;
+        console.log(`Successfully updated email for existing profile: ${userId}`);
+      } else {
+        console.log(`No changes needed for profile: ${userId}`);
       }
-      // PGRST116 means no rows returned, which is expected if the profile doesn't exist
-    } else if (existingProfile) {
-      // Profile exists, return success
-      console.log(`Profile for user ${userId} already exists, skipping creation`);
+      
       return true;
     }
     
@@ -103,78 +113,67 @@ async function createProfileWithServiceRoleInMiddleware(userId: string, email: s
       avatar_url?: string;
     } = {
       id: userId,
-      email: email || `user-${userId.substring(0, 8)}@example.com`
+      email
     };
 
     // Only add optional fields if they have values
     if (fullName) profileData.full_name = fullName;
     if (avatarUrl) profileData.avatar_url = avatarUrl;
 
-    console.log(`Creating profile with minimal required data:`, profileData);
+    console.log(`Creating new profile with data:`, profileData);
     
-    // Try to create the profile with a simplified approach
-    try {
-      // First try a direct insert
-      const { error: insertError } = await supabaseAdmin
-        .from('profiles')
-        .insert(profileData);
+    // Try to create the profile
+    const { error: insertError } = await supabaseAdmin
+      .from('profiles')
+      .insert(profileData);
 
-      if (insertError) {
-        // If insert fails due to duplicate key, try an update instead
-        if (insertError.code === '23505') { // PostgreSQL unique violation code
-          console.log('Profile already exists, updating instead...');
+    if (insertError) {
+      console.error('Error creating profile:', insertError);
+      console.error('Specific error details:', {
+        code: insertError.code,
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint
+      });
+      
+      // If it's a unique violation, try one more time with a definitely unique email
+      if (insertError.code === '23505') { 
+        console.log('Unique constraint violation, trying again with guaranteed unique email');
+        
+        const uniqueEmail = `user-${userId}-${Date.now()}@example.com`;
+        const retryData: {
+          id: string;
+          email: string;
+          full_name?: string;
+          avatar_url?: string;
+        } = {
+          id: userId,
+          email: uniqueEmail
+        };
+        
+        if (fullName) retryData.full_name = fullName;
+        if (avatarUrl) retryData.avatar_url = avatarUrl;
+        
+        const { error: retryError } = await supabaseAdmin
+          .from('profiles')
+          .insert(retryData);
           
-          const { error: updateError } = await supabaseAdmin
-            .from('profiles')
-            .update({ email: profileData.email })
-            .eq('id', profileData.id);
-            
-          if (updateError) {
-            console.error('Error updating existing profile:', updateError);
-            return false;
-          }
-          
-          console.log(`Successfully updated existing profile for user ${userId}`);
-          return true;
+        if (retryError) {
+          console.error('Error on retry of profile creation:', retryError);
+          return false;
         }
         
-        // For other errors, log details
-        console.error('Error creating profile:', insertError);
-        console.error('Specific error details:', {
-          code: insertError.code,
-          message: insertError.message,
-          details: insertError.details,
-          hint: insertError.hint
-        });
-        
-        // Check for table missing error
-        if (insertError.message && insertError.message.includes('does not exist')) {
-          console.error('The profiles table does not exist. Please create it with the following SQL:');
-          console.error(`
-            CREATE TABLE public.profiles (
-              id UUID PRIMARY KEY REFERENCES auth.users(id),
-              email TEXT,
-              full_name TEXT,
-              avatar_url TEXT,
-              bio TEXT,
-              website TEXT,
-              created_at TIMESTAMPTZ DEFAULT now(),
-              updated_at TIMESTAMPTZ DEFAULT now()
-            );
-          `);
-        }
-        
-        return false;
+        console.log(`Successfully created profile on retry for user ${userId}`);
+        return true;
       }
       
-      console.log(`Successfully created profile for user ${userId}`);
-      return true;
-    } catch (error) {
-      console.error('Exception during profile creation:', error);
       return false;
     }
-  } catch (insertCatchError) {
-    console.error('Exception during profile insertion:', insertCatchError);
+    
+    console.log(`Successfully created profile for user ${userId}`);
+    return true;
+  } catch (error) {
+    console.error('Exception during profile creation:', error);
     return false;
   }
 }
@@ -307,4 +306,4 @@ export const config = {
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
-}; 
+};

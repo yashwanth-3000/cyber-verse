@@ -89,10 +89,10 @@ export default function AuthErrorPage() {
         setSuggestion("Please try again with a different email address, or contact support if the issue persists.")
       } else if (err === "server_error" && code === "database_setup_error") {
         setErrorMessage("The database is not properly set up.")
-        setSuggestion("This is a server configuration issue that requires admin attention. Please try again later or contact support.")
+        setSuggestion("This is a server configuration issue. It may be related to missing RLS policies or other database constraints. Please contact support.")
       } else if (err === "server_error" && code === "database_error") {
         setErrorMessage("A database error occurred.")
-        setSuggestion("This is likely a server configuration issue. Please contact the site administrator.")
+        setSuggestion("This is likely a server configuration issue with missing privileges or setup issues. Please contact the site administrator.")
       } else if (err === "server_error" && code === "unexpected_error") {
         setErrorMessage("An unexpected error occurred.")
         setSuggestion("Please try again later or contact support if the problem persists.")
@@ -226,7 +226,7 @@ export default function AuthErrorPage() {
                 errorCode === "profile_creation_failed" ||
                 errorCode === "unexpected_failure")) && (
                 <a
-                  href={`mailto:support@cyberverse.com?subject=CyberVerse%20Database%20Error&body=I%20encountered%20a%20database%20error%20when%20trying%20to%20log%20in.%0A%0AError%20details:%0ACode:%20${errorCode}%0ADescription:%20${errorDescription}%0A%0APlease%20help%20resolve%20this%20issue.`}
+                  href={`mailto:support@cyberverse.com?subject=CyberVerse%20Database%20Error&body=I%20encountered%20a%20database%20error%20when%20trying%20to%20log%20in.%0A%0AError%20details:%0ACode:%20${errorCode}%0ADescription:%20${errorDescription}%0A%0AAdditional%20info:%0A-%20This%20occurred%20during%20authentication%0A-%20Browser:%20${navigator.userAgent}%0A%0APlease%20help%20resolve%20this%20issue.`}
                   className="w-full px-4 py-2 bg-transparent border border-red-500/50 text-red-400 rounded-md font-medium hover:bg-red-900/20 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:ring-offset-2 focus:ring-offset-black text-center"
                 >
                   Contact Support
