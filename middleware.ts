@@ -25,155 +25,101 @@ async function createProfileWithServiceRoleInMiddleware(userId: string, email: s
       }
     );
     
-    // First check if the profiles table exists
+    // First check if the profile already exists by ID (most reliable method)
     try {
-      // Try a direct query as a quick way to see if the table exists
-      const { error: directCheckError } = await supabaseAdmin
+      const { data: existingProfile, error: checkIdError } = await supabaseAdmin
         .from('profiles')
-        .select('count(*)', { count: 'exact', head: true });
+        .select('id')
+        .eq('id', userId)
+        .single();
       
-      if (directCheckError) {
-        console.error('Error directly checking profiles table:', directCheckError);
-        console.error('The profiles table may not exist. Please create it first.');
-        return false;
-      }
-    } catch (schemaError) {
-      console.error('Error checking schema for profiles table:', schemaError);
-      return false;
-    }
-    
-    // Check if profile already exists with this ID
-    console.log(`Checking if profile exists for user ID: ${userId}`);
-    const { data: existingProfileById, error: idCheckError } = await supabaseAdmin
-      .from('profiles')
-      .select('id, email')
-      .eq('id', userId)
-      .maybeSingle();
-      
-    if (idCheckError && idCheckError.code !== 'PGRST116') {
-      console.error('Error checking if profile exists by ID:', idCheckError);
-      return false;
-    }
-    
-    // Check if profile already exists with this email but different ID
-    if (email) {
-      console.log(`Checking if profile exists for email: ${email}`);
-      const { data: existingProfileByEmail, error: emailCheckError } = await supabaseAdmin
-        .from('profiles')
-        .select('id, email')
-        .eq('email', email)
-        .neq('id', userId)  // Exclude the current user ID
-        .maybeSingle();
-        
-      if (emailCheckError && emailCheckError.code !== 'PGRST116') {
-        console.error('Error checking if profile exists by email:', emailCheckError);
-        return false;
-      }
-      
-      // If the email is already used by another profile, use a different email
-      if (existingProfileByEmail) {
-        console.log(`Email ${email} is already used by another profile, using generated email`);
-        email = `user-${userId.substring(0, 8)}@example.com`;
-      }
-    } else {
-      // Ensure we have a valid email
-      email = `user-${userId.substring(0, 8)}@example.com`;
-    }
-    
-    // Handle existing profile
-    if (existingProfileById) {
-      console.log(`Profile for user ${userId} already exists, updating if needed`);
-      
-      // Only update if the email is different
-      if (existingProfileById.email !== email) {
-        const { error: updateError } = await supabaseAdmin
-          .from('profiles')
-          .update({ email })
-          .eq('id', userId);
-          
-        if (updateError) {
-          console.error('Error updating existing profile:', updateError);
-          return false;
-        }
-        
-        console.log(`Successfully updated email for existing profile: ${userId}`);
-      } else {
-        console.log(`No changes needed for profile: ${userId}`);
-      }
-      
-      return true;
-    }
-    
-    // Prepare profile data with only required fields
-    // Let the database handle defaults for created_at and updated_at
-    const profileData: {
-      id: string;
-      email: string;
-      full_name?: string;
-      avatar_url?: string;
-    } = {
-      id: userId,
-      email
-    };
-
-    // Only add optional fields if they have values
-    if (fullName) profileData.full_name = fullName;
-    if (avatarUrl) profileData.avatar_url = avatarUrl;
-
-    console.log(`Creating new profile with data:`, profileData);
-    
-    // Try to create the profile
-    const { error: insertError } = await supabaseAdmin
-      .from('profiles')
-      .insert(profileData);
-
-    if (insertError) {
-      console.error('Error creating profile:', insertError);
-      console.error('Specific error details:', {
-        code: insertError.code,
-        message: insertError.message,
-        details: insertError.details,
-        hint: insertError.hint
-      });
-      
-      // If it's a unique violation, try one more time with a definitely unique email
-      if (insertError.code === '23505') { 
-        console.log('Unique constraint violation, trying again with guaranteed unique email');
-        
-        const uniqueEmail = `user-${userId}-${Date.now()}@example.com`;
-        const retryData: {
-          id: string;
-          email: string;
-          full_name?: string;
-          avatar_url?: string;
-        } = {
-          id: userId,
-          email: uniqueEmail
-        };
-        
-        if (fullName) retryData.full_name = fullName;
-        if (avatarUrl) retryData.avatar_url = avatarUrl;
-        
-        const { error: retryError } = await supabaseAdmin
-          .from('profiles')
-          .insert(retryData);
-          
-        if (retryError) {
-          console.error('Error on retry of profile creation:', retryError);
-          return false;
-        }
-        
-        console.log(`Successfully created profile on retry for user ${userId}`);
+      if (existingProfile) {
+        console.log(`Profile for user ${userId} already exists, no need to create one`);
         return true;
       }
       
-      return false;
+      if (checkIdError && checkIdError.code !== 'PGRST116') {
+        console.error('Error checking for existing profile by ID:', checkIdError);
+        console.warn('Will attempt to create profile anyway');
+      }
+    } catch (checkError) {
+      console.error('Exception checking for existing profile:', checkError);
+      console.warn('Will attempt to create profile anyway');
     }
     
-    console.log(`Successfully created profile for user ${userId}`);
-    return true;
+    // Try multiple profile creation approaches in sequence, from least likely to fail to most aggressive
+    
+    // 1. Try with minimal required fields - just ID and generated email
+    try {
+      const minimalData = {
+        id: userId,
+        email: `user-${userId.substring(0, 8)}-${Date.now()}@example.com`
+      };
+      
+      console.log('Attempting minimal profile creation with:', minimalData);
+      
+      const { error: minimalError } = await supabaseAdmin
+        .from('profiles')
+        .insert(minimalData);
+        
+      if (!minimalError) {
+        console.log(`Successfully created minimal profile for user ${userId}`);
+        return true;
+      }
+      
+      console.error('Minimal profile creation failed:', minimalError);
+    } catch (minimalErr) {
+      console.error('Exception during minimal profile creation:', minimalErr);
+    }
+    
+    // 2. Try direct SQL insertion (bypasses some constraints)
+    try {
+      console.log('Attempting direct SQL profile creation');
+      
+      const { error: sqlError } = await supabaseAdmin.rpc('create_profile_for_user', { 
+        user_id: userId,
+        user_email: email || `user-${userId.substring(0, 8)}-${Date.now()}@example.com`
+      });
+      
+      if (!sqlError) {
+        console.log(`Successfully created profile via SQL RPC for user ${userId}`);
+        return true;
+      }
+      
+      console.error('SQL profile creation failed:', sqlError);
+    } catch (sqlErr) {
+      console.error('Exception during SQL profile creation:', sqlErr);
+    }
+    
+    // 3. Try inserting profile with bare minimum data (fallback approach)
+    try {
+      const fallbackEmail = `user-${userId}-${Date.now()}@example.com`;
+      const fallbackData = {
+        id: userId,
+        email: fallbackEmail
+      };
+      
+      console.log('Attempting fallback profile creation with:', fallbackData);
+      
+      const { error: fallbackError } = await supabaseAdmin
+        .from('profiles')
+        .insert(fallbackData);
+        
+      if (!fallbackError) {
+        console.log(`Successfully created fallback profile for user ${userId}`);
+        return true;
+      }
+      
+      console.error('Fallback profile creation failed:', fallbackError);
+    } catch (fallbackErr) {
+      console.error('Exception during fallback profile creation:', fallbackErr);
+    }
+    
+    // All attempts failed
+    console.error(`All profile creation attempts failed for user ${userId}`);
+    return false;
   } catch (error) {
-    console.error('Exception during profile creation:', error);
+    console.error('Unhandled exception during profile creation:', error);
     return false;
   }
 }
