@@ -6,6 +6,31 @@ export async function GET(request: NextRequest) {
     const requestUrl = new URL(request.url);
     console.log("Auth callback called with URL:", request.url);
     
+    // Check for error parameters in the request URL
+    const errorParam = requestUrl.searchParams.get("error");
+    const errorCodeParam = requestUrl.searchParams.get("error_code");
+    const errorDescParam = requestUrl.searchParams.get("error_description");
+    
+    // If there are error parameters, redirect to error page with these parameters
+    if (errorParam) {
+      console.log("Error parameters detected in callback URL:", { 
+        error: errorParam, 
+        code: errorCodeParam, 
+        description: errorDescParam 
+      });
+      
+      // Get base URL from request or environment variables
+      const host = request.headers.get("host") || "";
+      const protocol = host.includes("localhost") ? "http" : "https";
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || `${protocol}://${host}`;
+      
+      // Create error URL with hash parameters to preserve error info
+      const errorUrl = new URL(`${baseUrl}/auth/auth-error`, request.url);
+      errorUrl.hash = `error=${errorParam}${errorCodeParam ? `&error_code=${errorCodeParam}` : ''}${errorDescParam ? `&error_description=${errorDescParam}` : ''}`;
+      
+      return NextResponse.redirect(errorUrl);
+    }
+    
     const code = requestUrl.searchParams.get("code");
     console.log("Auth code present:", !!code);
     

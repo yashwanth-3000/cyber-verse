@@ -12,12 +12,14 @@ export default function AuthErrorPage() {
   const [errorCode, setErrorCode] = useState<string | null>(null)
   const [errorDescription, setErrorDescription] = useState<string | null>(null)
   
-  const [errorMessage, setErrorMessage] = useState("")
-  const [suggestion, setSuggestion] = useState("")
+  const [errorMessage, setErrorMessage] = useState("There was a problem with your authentication request.")
+  const [suggestion, setSuggestion] = useState("Please try again or contact support.")
+  const [isLoaded, setIsLoaded] = useState(false)
   
-  // Extract error information from both query params and hash fragment
+  // Use a synchronous initializer to avoid the initial null values
   useEffect(() => {
-    function parseErrorInfo() {
+    // This function parses error info from both query params and hash
+    const parseErrorInfo = () => {
       // First check query params
       const queryError = searchParams.get("error")
       const queryErrorCode = searchParams.get("error_code")
@@ -38,14 +40,15 @@ export default function AuthErrorPage() {
         console.log("Raw hash:", hashString)
         
         try {
-          // Parse the hash manually if URLSearchParams doesn't work as expected
+          // Parse the hash manually to avoid issues with URLSearchParams
           const hashParts = hashString.split('&')
-          hashParts.forEach(part => {
+          for (const part of hashParts) {
+            if (!part.includes('=')) continue;
             const [key, value] = part.split('=')
             if (key === 'error') hashError = decodeURIComponent(value)
             if (key === 'error_code') hashErrorCode = decodeURIComponent(value)
             if (key === 'error_description') hashErrorDescription = decodeURIComponent(value)
-          })
+          }
           
           console.log("Parsed hash manually:", { hashError, hashErrorCode, hashErrorDescription })
         } catch (e) {
@@ -55,15 +58,71 @@ export default function AuthErrorPage() {
       
       // Use hash params as they're more likely to contain the real error
       // Fall back to query params if hash params don't exist
-      setError(hashError || queryError)
-      setErrorCode(hashErrorCode || queryErrorCode)
-      setErrorDescription(hashErrorDescription || queryErrorDescription)
+      const finalError = hashError || queryError
+      const finalErrorCode = hashErrorCode || queryErrorCode
+      const finalErrorDescription = hashErrorDescription || queryErrorDescription
+      
+      // Set the state values
+      setError(finalError)
+      setErrorCode(finalErrorCode)
+      setErrorDescription(finalErrorDescription)
+      
+      // Update the error message and suggestion based on the error info
+      updateErrorMessage(finalError, finalErrorCode, finalErrorDescription)
+      
+      // Mark as loaded so we know the initial values are set
+      setIsLoaded(true)
+      
+      return { finalError, finalErrorCode, finalErrorDescription }
     }
     
-    // Parse immediately on load
-    parseErrorInfo()
+    // Update error message based on error info
+    const updateErrorMessage = (err: string | null, code: string | null, desc: string | null) => {
+      if (desc) {
+        setErrorMessage(desc)
+        setSuggestion("Please try again with a different account or contact support if the issue persists.")
+      } else if (err === "server_error" && code === "unexpected_failure") {
+        setErrorMessage("A database error occurred while saving user information.")
+        setSuggestion("This is likely a temporary issue. Please try again, or contact support if the problem persists.")
+      } else if (err === "server_error" && code === "profile_creation_failed") {
+        setErrorMessage("Failed to create your user profile.")
+        setSuggestion("Please try again with a different email address, or contact support if the issue persists.")
+      } else if (err === "server_error" && code === "database_setup_error") {
+        setErrorMessage("The database is not properly set up.")
+        setSuggestion("This is a server configuration issue. Please contact the site administrator.")
+      } else if (err === "server_error" && code === "database_error") {
+        setErrorMessage("A database error occurred.")
+        setSuggestion("This is likely a server configuration issue. Please contact the site administrator.")
+      } else if (err === "server_error" && code === "unexpected_error") {
+        setErrorMessage("An unexpected error occurred.")
+        setSuggestion("Please try again later or contact support if the problem persists.")
+      } else if (err === "auth_error") {
+        setErrorMessage("Authentication failed.")
+        setSuggestion("Please try signing in again or use a different authentication method.")
+      } else if (err === "exchange_error") {
+        setErrorMessage("Failed to complete authentication.")
+        setSuggestion("Please try signing in again with a different method.")
+      } else if (err === "missing_code") {
+        setErrorMessage("Authentication code is missing.")
+        setSuggestion("Please try the sign-in process again from the beginning.")
+      } else {
+        setErrorMessage("There was a problem with your authentication request.")
+        setSuggestion("This could be due to an expired session or an invalid authentication code.")
+      }
+    }
     
-    // Also set up a listener for hash changes
+    // Run the parser immediately to set initial values
+    const { finalError, finalErrorCode, finalErrorDescription } = parseErrorInfo()
+    
+    // Log the initial values
+    console.log("Initial auth error information:", { 
+      error: finalError, 
+      errorCode: finalErrorCode, 
+      errorDescription: finalErrorDescription,
+      hash: typeof window !== 'undefined' ? window.location.hash : null
+    })
+    
+    // Set up a listener for hash changes
     if (typeof window !== 'undefined') {
       const handleHashChange = () => {
         parseErrorInfo()
@@ -74,37 +133,19 @@ export default function AuthErrorPage() {
         window.removeEventListener('hashchange', handleHashChange)
       }
     }
-  }, [searchParams])
+  }, [searchParams]) // Only run on mount and when searchParams changes
   
+  // Debug output to help diagnose issues after state updates
   useEffect(() => {
-    // Set appropriate error messages based on the error code
-    if (errorDescription) {
-      setErrorMessage(errorDescription)
-      setSuggestion("Please try again with a different account or contact support if the issue persists.")
-    } else if (error === "server_error" && errorCode === "unexpected_failure") {
-      setErrorMessage("A database error occurred while saving user information.")
-      setSuggestion("This is likely a temporary issue. Please try again, or contact support if the problem persists.")
-    } else if (error === "exchange_error") {
-      setErrorMessage("Failed to complete authentication.")
-      setSuggestion("Please try signing in again with a different method.")
-    } else if (error === "missing_code") {
-      setErrorMessage("Authentication code is missing.")
-      setSuggestion("Please try the sign-in process again from the beginning.")
-    } else {
-      setErrorMessage("There was a problem with your authentication request.")
-      setSuggestion("This could be due to an expired session or an invalid authentication code.")
+    if (isLoaded) {
+      console.log("Updated auth error information:", { 
+        error, 
+        errorCode, 
+        errorDescription,
+        hash: typeof window !== 'undefined' ? window.location.hash : null
+      })
     }
-  }, [error, errorCode, errorDescription])
-
-  // Debug output to help diagnose issues
-  useEffect(() => {
-    console.log("Auth error information:", { 
-      error, 
-      errorCode, 
-      errorDescription,
-      hash: typeof window !== 'undefined' ? window.location.hash : null
-    })
-  }, [error, errorCode, errorDescription])
+  }, [error, errorCode, errorDescription, isLoaded])
 
   return (
     <div className="relative min-h-screen bg-black overflow-hidden">
