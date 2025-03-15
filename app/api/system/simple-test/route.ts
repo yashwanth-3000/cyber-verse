@@ -38,38 +38,35 @@ export async function GET(request: NextRequest) {
       }
     });
     
-    // Try the simplest possible query
-    console.log('Testing basic connectivity...');
+    // Try the simplest possible query directly on profiles table
+    console.log('Testing database connectivity...');
     try {
-      // First try a simple system table query that doesn't require special permissions
-      const { data: systemData, error: systemError } = await supabase
-        .from('pg_catalog.pg_tables')
-        .select('schemaname, tablename')
-        .eq('schemaname', 'public')
-        .limit(1);
+      // Skip system table query as it's failing
+      console.log('Attempting direct profiles table query...');
       
-      if (systemError) {
-        console.error('System table query failed:', systemError);
-      } else {
-        console.log('System table query succeeded');
-      }
-      
-      // Then try a query against the profiles table
+      // First check if we can access the profiles table at all
       const { data, error } = await supabase
         .from('profiles')
         .select('count(*)', { count: 'exact', head: true });
       
       if (error) {
-        // If there's an error, try to provide more diagnostics
+        // Now try an RPC call as that has been working
+        console.log('Trying RPC call as fallback...');
+        const { data: rpcData, error: rpcError } = await supabase.rpc('force_create_profile', {
+          user_id: '00000000-0000-0000-0000-000000000099'
+        });
+        
+        // Return detailed diagnostics
         return NextResponse.json({
           success: false,
           error: error.message,
           error_code: error.code,
           details: error.details,
           hint: error.hint,
-          system_test: {
-            success: !systemError,
-            error: systemError?.message
+          rpc_test: {
+            success: !rpcError,
+            data: rpcData,
+            error: rpcError?.message
           },
           env_check: {
             url_valid: supabaseUrl.includes('supabase.co'),
@@ -82,10 +79,7 @@ export async function GET(request: NextRequest) {
       // Success case
       return NextResponse.json({
         success: true,
-        data: 'Connected successfully',
-        system_test: {
-          success: !systemError
-        },
+        data: 'Connected successfully to profiles table',
         timestamp: new Date().toISOString()
       });
     } catch (directError) {
