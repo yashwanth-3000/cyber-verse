@@ -128,6 +128,28 @@ We've modified the auth callback route to handle profile creation directly at th
    - Tries multiple methods to create the profile
    - Handles profile creation in the background so it doesn't block the user experience
 
+### 3. Nuclear Option: Remove All Security Measures (DEVELOPMENT ONLY)
+
+⚠️ **WARNING: This is an extreme measure that should ONLY be used for development/debugging!** ⚠️
+
+If nothing else is working, you can temporarily remove all security measures from the profiles table:
+
+1. Go to your Supabase SQL Editor
+2. Copy and paste the contents of `migrations/remove_all_security.sql`
+3. Run the script
+4. This script will:
+   - Disable Row Level Security (RLS) completely on the profiles table
+   - Drop all RLS policies
+   - Disable all triggers
+   - Remove constraints on the email field
+   - Grant all privileges to all roles
+   - Attempt to remove the foreign key constraint
+   - Create an unrestricted profile creation function
+
+After using this script, test your application to see if profile creation works. If it does, this confirms the issue is related to security measures.
+
+**IMPORTANT:** After identifying and fixing the issue, you MUST restore security before deploying to production! Use the `emergency_direct_fix.sql` script to restore basic security measures.
+
 These measures directly address the timing issues between user creation in auth.users and profile creation.
 
 ## Still Having Issues?
