@@ -29,26 +29,31 @@ export async function GET(request: NextRequest) {
       // Create a Supabase client using the request and response
       const supabase = createSupabaseReqResClient(request, response);
       
-      // Exchange the code for a session
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
-      
-      if (error) {
-        console.error("Error exchanging code for session:", error.message);
-        return NextResponse.redirect(new URL(`${baseUrl}/auth/auth-error`, request.url));
+      try {
+        // Exchange the code for a session
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        
+        if (error) {
+          console.error("Error exchanging code for session:", error.message);
+          return NextResponse.redirect(new URL(`${baseUrl}/auth/auth-error?error=${encodeURIComponent(error.message)}`, request.url));
+        }
+        
+        return response;
+      } catch (exchangeError) {
+        console.error("Exception in code exchange:", exchangeError);
+        return NextResponse.redirect(new URL(`${baseUrl}/auth/auth-error?error=exchange_error`, request.url));
       }
-      
-      return response;
     }
 
     // Return the user to an error page with instructions
-    return NextResponse.redirect(new URL(`${baseUrl}/auth/auth-error`, request.url));
+    return NextResponse.redirect(new URL(`${baseUrl}/auth/auth-error?error=missing_code`, request.url));
   } catch (error) {
     console.error("Unexpected error in auth callback:", error);
     
     // Fallback URL for errors - try to use environment variable first
     const errorUrl = process.env.NEXT_PUBLIC_SITE_URL 
-      ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/auth-error` 
-      : `${request.headers.get("origin") || "https://cyber-verse-psi.vercel.app"}/auth/auth-error`;
+      ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/auth-error?error=server_error` 
+      : `${request.headers.get("origin") || "https://cyber-verse-psi.vercel.app"}/auth/auth-error?error=server_error`;
       
     return NextResponse.redirect(new URL(errorUrl, request.url));
   }

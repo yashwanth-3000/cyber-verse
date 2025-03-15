@@ -5,9 +5,14 @@ import { createClient } from "@supabase/supabase-js";
 // Helper function to create a profile with service role
 async function createProfileWithServiceRoleInMiddleware(userId: string, email: string, fullName: string = '', avatarUrl: string = '') {
   // Create a Supabase client with the service role key
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('Missing required environment variables for createProfileWithServiceRoleInMiddleware');
+    return false;
+  }
+
   const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
     {
       auth: {
         autoRefreshToken: false,
@@ -34,18 +39,26 @@ async function createProfileWithServiceRoleInMiddleware(userId: string, email: s
       return true;
     }
     
-    // Create the profile
+    // Create the profile with proper error handling
     const { error: insertError } = await supabaseAdmin
       .from('profiles')
       .insert({
         id: userId,
         email,
-        full_name: fullName,
-        avatar_url: avatarUrl
+        full_name: fullName || email.split('@')[0], // Fallback to email username if no name
+        avatar_url: avatarUrl || ''
       });
       
     if (insertError) {
       console.error('Error creating profile with service role in middleware:', insertError);
+      
+      // If the error is because the profile already exists (unique constraint), 
+      // we can consider this a success
+      if (insertError.code === '23505') { // PostgreSQL unique violation code
+        console.log('Profile already exists (constraint violation), considering as success');
+        return true;
+      }
+      
       return false;
     }
     

@@ -53,7 +53,14 @@ export default function LoginPage() {
           </Link>
 
           <div className="bg-black/50 backdrop-blur-md rounded-lg border border-[#00FF00]/20 p-8">
-            <h2 className="text-3xl font-bold text-[#00FF00] mb-6">Login to VARTI</h2>
+            <div className="flex justify-center mb-6">
+              <div className="text-[#00FF00] text-4xl font-bold font-mono tracking-wider">
+                <span className="mr-1 text-[#00FF00]/80">&gt;</span>
+                CYBER_VERSE
+                <span className="ml-1 animate-pulse">_</span>
+              </div>
+            </div>
+            <h2 className="text-3xl font-bold text-[#00FF00] mb-6">Login to CYBERVERSE</h2>
             <form className="space-y-6">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
