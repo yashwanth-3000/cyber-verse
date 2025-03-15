@@ -38,61 +38,114 @@ export async function GET(request: NextRequest) {
       }
     });
     
-    // Try the simplest possible query directly on profiles table
+    // Test both profile access and RPC functions
     console.log('Testing database connectivity...');
+    const tests = [];
+    let allTestsPassed = false;
+    
+    // Test 1: Check profiles table access
     try {
-      // Skip system table query as it's failing
-      console.log('Attempting direct profiles table query...');
-      
-      // First check if we can access the profiles table at all
-      const { data, error } = await supabase
+      console.log('Attempting profiles table query...');
+      const { count, error } = await supabase
         .from('profiles')
-        .select('count(*)', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true });
       
-      if (error) {
-        // Now try an RPC call as that has been working
-        console.log('Trying RPC call as fallback...');
-        const { data: rpcData, error: rpcError } = await supabase.rpc('force_create_profile', {
-          user_id: '00000000-0000-0000-0000-000000000099'
+      if (!error) {
+        tests.push({
+          name: 'Profiles Table Access',
+          success: true,
+          message: `Count result: ${count ?? 0}`
         });
-        
-        // Return detailed diagnostics
-        return NextResponse.json({
+      } else {
+        tests.push({
+          name: 'Profiles Table Access',
           success: false,
           error: error.message,
-          error_code: error.code,
-          details: error.details,
-          hint: error.hint,
-          rpc_test: {
-            success: !rpcError,
-            data: rpcData,
-            error: rpcError?.message
-          },
-          env_check: {
-            url_valid: supabaseUrl.includes('supabase.co'),
-            key_length_valid: supabaseServiceKey.length > 20
-          },
-          timestamp: new Date().toISOString()
+          code: error.code
         });
       }
-      
-      // Success case
-      return NextResponse.json({
-        success: true,
-        data: 'Connected successfully to profiles table',
-        timestamp: new Date().toISOString()
-      });
-    } catch (directError) {
-      // Handle any uncaught errors during the query
-      console.error('Unhandled error during database query:', directError);
-      
-      return NextResponse.json({
+    } catch (e) {
+      tests.push({
+        name: 'Profiles Table Access',
         success: false,
-        error: directError instanceof Error ? directError.message : 'Unknown error',
-        stack: directError instanceof Error ? directError.stack : undefined,
-        timestamp: new Date().toISOString()
-      }, { status: 500 });
+        error: e instanceof Error ? e.message : String(e)
+      });
     }
+    
+    // Test 2: Try the create_minimal_profile function (most reliable)
+    try {
+      console.log('Testing create_minimal_profile RPC...');
+      const testId = '00000000-0000-0000-0000-000000000099';
+      
+      const { data: rpcData, error: rpcError } = await supabase.rpc('create_minimal_profile', {
+        user_id: testId
+      });
+      
+      if (!rpcError) {
+        tests.push({
+          name: 'create_minimal_profile RPC',
+          success: true,
+          message: rpcData
+        });
+      } else {
+        tests.push({
+          name: 'create_minimal_profile RPC',
+          success: false,
+          error: rpcError.message,
+          code: rpcError.code
+        });
+        
+        // If the function doesn't exist, try force_create_profile
+        if (rpcError.message.includes('does not exist')) {
+          console.log('Falling back to force_create_profile...');
+          
+          const { data: fallbackData, error: fallbackError } = await supabase.rpc('force_create_profile', {
+            user_id: testId
+          });
+          
+          if (!fallbackError) {
+            tests.push({
+              name: 'force_create_profile Fallback',
+              success: true,
+              message: fallbackData
+            });
+          } else {
+            tests.push({
+              name: 'force_create_profile Fallback',
+              success: false,
+              error: fallbackError.message,
+              code: fallbackError.code
+            });
+          }
+        }
+      }
+    } catch (e) {
+      tests.push({
+        name: 'RPC Function Test',
+        success: false,
+        error: e instanceof Error ? e.message : String(e)
+      });
+    }
+    
+    // Calculate overall success
+    allTestsPassed = tests.some(test => test.success);
+    
+    // Return results
+    return NextResponse.json({
+      success: allTestsPassed,
+      message: allTestsPassed ? 'At least one test passed' : 'All tests failed',
+      tests,
+      env_check: {
+        url_valid: supabaseUrl.includes('supabase.co'),
+        key_length_valid: supabaseServiceKey.length > 20
+      },
+      next_steps: !allTestsPassed ? [
+        'Run the fix_function_ambiguity.sql script in your Supabase SQL Editor',
+        'Make sure your Supabase project is not paused',
+        'Verify that the service role key is correct in your environment variables'
+      ] : [],
+      timestamp: new Date().toISOString()
+    });
   } catch (outerError) {
     // Handle any uncaught errors in the entire function
     console.error('Critical error in simple-test endpoint:', outerError);

@@ -47,72 +47,92 @@ async function createProfileWithServiceRoleInMiddleware(userId: string, email: s
       console.warn('Will attempt to create profile anyway');
     }
     
-    // Try multiple profile creation approaches in sequence, from least likely to fail to most aggressive
+    // UPDATED APPROACH: Focus on RPC methods since they're working
     
-    // 1. Try with minimal required fields - just ID and generated email
+    // 1. Try using the force_create_profile RPC function first (this is working in tests)
     try {
-      const minimalData = {
-        id: userId,
-        email: `user-${userId.substring(0, 8)}-${Date.now()}@example.com`
-      };
+      console.log('Attempting profile creation via force_create_profile RPC');
       
-      console.log('Attempting minimal profile creation with:', minimalData);
-      
-      const { error: minimalError } = await supabaseAdmin
-        .from('profiles')
-        .insert(minimalData);
-        
-      if (!minimalError) {
-        console.log(`Successfully created minimal profile for user ${userId}`);
-        return true;
-      }
-      
-      console.error('Minimal profile creation failed:', minimalError);
-    } catch (minimalErr) {
-      console.error('Exception during minimal profile creation:', minimalErr);
-    }
-    
-    // 2. Try direct SQL insertion (bypasses some constraints)
-    try {
-      console.log('Attempting direct SQL profile creation');
-      
-      const { error: sqlError } = await supabaseAdmin.rpc('create_profile_for_user', { 
+      const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('force_create_profile', { 
         user_id: userId,
-        user_email: email || `user-${userId.substring(0, 8)}-${Date.now()}@example.com`
+        user_email: email
       });
       
-      if (!sqlError) {
-        console.log(`Successfully created profile via SQL RPC for user ${userId}`);
+      // Log RPC result for debugging
+      if (rpcData) {
+        console.log('RPC result:', rpcData);
+      }
+      
+      if (!rpcError) {
+        console.log(`Successfully created profile via force_create_profile RPC for user ${userId}`);
         return true;
       }
       
-      console.error('SQL profile creation failed:', sqlError);
-    } catch (sqlErr) {
-      console.error('Exception during SQL profile creation:', sqlErr);
+      // Check for ambiguity error and try the minimal version if that's the problem
+      if (rpcError.message && rpcError.message.includes('could not choose the best candidate function')) {
+        console.warn('Function ambiguity detected, trying create_minimal_profile instead');
+        
+        const { data: minimalData, error: minimalError } = await supabaseAdmin.rpc('create_minimal_profile', { 
+          user_id: userId
+        });
+        
+        if (!minimalError) {
+          console.log(`Successfully created profile via create_minimal_profile RPC for user ${userId}`);
+          return true;
+        }
+        
+        console.error('Minimal profile creation failed:', minimalError);
+      } else {
+        console.error('RPC profile creation failed:', rpcError);
+      }
+    } catch (rpcErr) {
+      console.error('Exception during RPC profile creation:', rpcErr);
     }
     
-    // 3. Try inserting profile with bare minimum data (fallback approach)
+    // 2. Fall back to direct insertion if RPC fails
     try {
-      const fallbackEmail = `user-${userId}-${Date.now()}@example.com`;
-      const fallbackData = {
+      // Define the profile data with proper typing
+      interface ProfileData {
+        id: string;
+        email: string;
+        full_name?: string;
+        avatar_url?: string;
+      }
+      
+      const fallbackData: ProfileData = {
         id: userId,
-        email: fallbackEmail
+        email: email || `user-${userId.substring(0, 8)}-${Date.now()}@example.com`
       };
       
-      console.log('Attempting fallback profile creation with:', fallbackData);
+      // Only add optional fields if they have values
+      if (fullName) {
+        fallbackData.full_name = fullName;
+      }
       
-      const { error: fallbackError } = await supabaseAdmin
+      if (avatarUrl) {
+        fallbackData.avatar_url = avatarUrl;
+      }
+      
+      console.log('Attempting direct insertion as fallback with:', fallbackData);
+      
+      const { error: insertError } = await supabaseAdmin
         .from('profiles')
         .insert(fallbackData);
         
-      if (!fallbackError) {
-        console.log(`Successfully created fallback profile for user ${userId}`);
+      if (!insertError) {
+        console.log(`Successfully created profile via direct insertion for user ${userId}`);
         return true;
       }
       
-      console.error('Fallback profile creation failed:', fallbackError);
-    } catch (fallbackErr) {
-      console.error('Exception during fallback profile creation:', fallbackErr);
+      console.error('Direct insertion profile creation failed:', insertError);
+      
+      // Handle foreign key constraint specifically
+      if (insertError.code === '23503' && insertError.message.includes('violates foreign key constraint')) {
+        console.error('Foreign key violation - the user ID does not exist in auth.users');
+        return false;
+      }
+    } catch (insertErr) {
+      console.error('Exception during direct insertion profile creation:', insertErr);
     }
     
     // All attempts failed
