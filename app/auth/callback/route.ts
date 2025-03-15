@@ -24,9 +24,21 @@ export async function GET(request: NextRequest) {
       const protocol = host.includes("localhost") ? "http" : "https";
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || `${protocol}://${host}`;
       
+      // Analyze the error to provide more specific guidance
+      let errorHash;
+      
+      if (errorParam === 'server_error' && errorCodeParam === 'unexpected_failure' && 
+          errorDescParam?.includes('Database error saving new user')) {
+        // This is the specific database error when creating new profiles
+        errorHash = `error=server_error&error_code=database_setup_error&error_description=${encodeURIComponent('The database could not save your user profile. This is a server configuration issue. Please contact support.')}`;
+      } else {
+        // Default error handling - pass through the original error parameters
+        errorHash = `error=${errorParam}${errorCodeParam ? `&error_code=${errorCodeParam}` : ''}${errorDescParam ? `&error_description=${errorDescParam}` : ''}`;
+      }
+      
       // Create error URL with hash parameters to preserve error info
       const errorUrl = new URL(`${baseUrl}/auth/auth-error`, request.url);
-      errorUrl.hash = `error=${errorParam}${errorCodeParam ? `&error_code=${errorCodeParam}` : ''}${errorDescParam ? `&error_description=${errorDescParam}` : ''}`;
+      errorUrl.hash = errorHash;
       
       return NextResponse.redirect(errorUrl);
     }

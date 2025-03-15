@@ -76,7 +76,10 @@ async function createProfileWithServiceRoleInMiddleware(userId: string, email: s
               email TEXT,
               full_name TEXT,
               avatar_url TEXT,
-              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+              bio TEXT,
+              website TEXT,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
             );
           `);
           return false;
@@ -97,47 +100,63 @@ async function createProfileWithServiceRoleInMiddleware(userId: string, email: s
       email: email || `user-${userId.substring(0, 8)}@example.com`,
       full_name: fullName || email?.split('@')[0] || `User ${userId.substring(0, 6)}`,
       avatar_url: avatarUrl || '',
-      created_at: new Date().toISOString()
+      bio: '',
+      website: '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
     
     console.log(`Creating profile with data:`, profileData);
     
-    // Create the profile with proper error handling
-    const { error: insertError } = await supabaseAdmin
-      .from('profiles')
-      .insert(profileData);
-      
-    if (insertError) {
-      console.error('Error creating profile with service role in middleware:', insertError);
-      
-      // If the error is because the profile already exists (unique constraint), 
-      // we can consider this a success
-      if (insertError.code === '23505') { // PostgreSQL unique violation code
-        console.log('Profile already exists (constraint violation), considering as success');
-        return true;
+    // Try to create/update the profile using upsert
+    try {
+      // Using upsert instead of insert to handle both creation and update cases
+      const { error: upsertError } = await supabaseAdmin
+        .from('profiles')
+        .upsert(profileData, {
+          onConflict: 'id', // Conflict on primary key (id)
+          ignoreDuplicates: false // Update if exists
+        });
+        
+      if (upsertError) {
+        console.error('Error upserting profile with service role in middleware:', upsertError);
+        
+        // Log specific error details to help diagnose
+        console.error('Specific error details:', {
+          code: upsertError.code,
+          message: upsertError.message,
+          details: upsertError.details,
+          hint: upsertError.hint
+        });
+        
+        // If the error is about the table not existing, log it clearly
+        if (upsertError.message && upsertError.message.includes('does not exist')) {
+          console.error('The profiles table does not exist. Please create it with the following SQL:');
+          console.error(`
+            CREATE TABLE public.profiles (
+              id UUID PRIMARY KEY REFERENCES auth.users(id),
+              email TEXT,
+              full_name TEXT,
+              avatar_url TEXT,
+              bio TEXT,
+              website TEXT,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+          `);
+        }
+        
+        return false;
       }
       
-      // If the error is about the table not existing, log it clearly
-      if (insertError.message && insertError.message.includes('does not exist')) {
-        console.error('The profiles table does not exist. Please create it with the following SQL:');
-        console.error(`
-          CREATE TABLE public.profiles (
-            id UUID PRIMARY KEY REFERENCES auth.users(id),
-            email TEXT,
-            full_name TEXT,
-            avatar_url TEXT,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-          );
-        `);
-      }
-      
+      console.log(`Successfully upserted profile for user ${userId}`);
+      return true;
+    } catch (upsertCatchError) {
+      console.error('Exception during profile upsert:', upsertCatchError);
       return false;
     }
-    
-    console.log(`Successfully created profile for user ${userId}`);
-    return true;
-  } catch (error) {
-    console.error('Unexpected error creating profile with service role in middleware:', error);
+  } catch (insertCatchError) {
+    console.error('Exception during profile insertion:', insertCatchError);
     return false;
   }
 }

@@ -80,7 +80,7 @@ export default function AuthErrorPage() {
     const updateErrorMessage = (err: string | null, code: string | null, desc: string | null) => {
       if (desc) {
         setErrorMessage(desc)
-        setSuggestion("Please try again with a different account or contact support if the issue persists.")
+        setSuggestion("Please try again with a different account or contact support.")
       } else if (err === "server_error" && code === "unexpected_failure") {
         setErrorMessage("A database error occurred while saving user information.")
         setSuggestion("This is likely a temporary issue. Please try again, or contact support if the problem persists.")
@@ -89,7 +89,7 @@ export default function AuthErrorPage() {
         setSuggestion("Please try again with a different email address, or contact support if the issue persists.")
       } else if (err === "server_error" && code === "database_setup_error") {
         setErrorMessage("The database is not properly set up.")
-        setSuggestion("This is a server configuration issue. Please contact the site administrator.")
+        setSuggestion("This is a server configuration issue that requires admin attention. Please try again later or contact support.")
       } else if (err === "server_error" && code === "database_error") {
         setErrorMessage("A database error occurred.")
         setSuggestion("This is likely a server configuration issue. Please contact the site administrator.")
@@ -204,12 +204,28 @@ export default function AuthErrorPage() {
               >
                 Try Logging In Again
               </Link>
-              <Link
-                href="/signup"
-                className="w-full px-4 py-2 bg-transparent border border-[#00FF00]/20 text-[#00FF00] rounded-md font-medium hover:bg-[#00FF00]/10 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#00FF00]/50 focus:ring-offset-2 focus:ring-offset-black text-center"
-              >
-                Create New Account
-              </Link>
+              
+              {/* Show contact support button for database errors */}
+              {(error === "server_error" && (
+                errorCode === "database_setup_error" || 
+                errorCode === "database_error" || 
+                errorCode === "profile_creation_failed" ||
+                errorCode === "unexpected_failure")) ? (
+                <a
+                  href="mailto:admin@example.com?subject=Database%20Error%20on%20CyberVerse&body=I%20encountered%20a%20database%20error%20when%20trying%20to%20log%20in.%20Error%20details:%20"
+                  className="w-full px-4 py-2 bg-transparent border border-red-500/50 text-red-400 rounded-md font-medium hover:bg-red-900/20 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:ring-offset-2 focus:ring-offset-black text-center"
+                >
+                  Contact Support
+                </a>
+              ) : (
+                <Link
+                  href="/signup"
+                  className="w-full px-4 py-2 bg-transparent border border-[#00FF00]/20 text-[#00FF00] rounded-md font-medium hover:bg-[#00FF00]/10 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#00FF00]/50 focus:ring-offset-2 focus:ring-offset-black text-center"
+                >
+                  Create New Account
+                </Link>
+              )}
+              
               <Link
                 href="/"
                 className="w-full px-4 py-2 bg-transparent text-gray-400 hover:text-white rounded-md font-medium transition-all duration-300 focus:outline-none text-center"
